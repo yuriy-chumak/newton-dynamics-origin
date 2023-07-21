@@ -85,6 +85,14 @@ class ndVector
 		,m_w(ndFloat32(ptr[3]))
 	{
 	}
+
+	inline ndVector(ndFloat64 x, ndFloat64 y, ndFloat64 z, ndFloat64 w)
+		:m_x(ndFloat32(x))
+		,m_y(ndFloat32(y))
+		,m_z(ndFloat32(z))
+		,m_w(ndFloat32(w))
+	{
+	}
 #endif
 
 	inline ndVector (const ndVector& copy)
@@ -237,8 +245,6 @@ class ndVector
 	// return 4d dot product
 	inline ndVector DotProduct(const ndVector& A) const
 	{
-		//const ndVector tmp(_mm_mul_ps(m_type, A.m_type));
-		//return tmp.AddHorizontal();
 		return (*this * A).AddHorizontal();
 	}
 
@@ -343,14 +349,8 @@ class ndVector
 		return _mm_min_ps (m_type, data.m_type);
 	}
 
-	inline ndVector GetInt () const
-	{
-		return ndVector(_mm_cvtps_epi32(Floor().m_type));
-	}
-
 	inline ndVector TestZero() const
 	{
-		//return ndVector (_mm_cmpeq_epi32 (m_typeInt, m_zero.m_typeInt)) & m_negOne;
 		return m_negOne & (*this == m_zero);
 	}
 
@@ -363,6 +363,11 @@ class ndVector
 		ndAssert (ret.m_f[2] == ndFloor(m_f[2]));
 		ndAssert (ret.m_f[3] == ndFloor(m_f[3]));
 		return ret;
+	}
+
+	inline ndVector GetInt() const
+	{
+		return ndVector(_mm_cvtps_epi32(Floor().m_type));
 	}
 
 	inline ndVector Sqrt () const
@@ -465,6 +470,32 @@ class ndVector
 		return ndVector (_mm_srli_epi32(m_typeInt, bits)); 
 	}
 
+	inline ndVector OptimizedVectorUnrotate(const ndVector& front, const ndVector& up, const ndVector& right) const
+	{
+#if 0
+		return ndVector(
+			m_x * front.m_x + m_y * front.m_y + m_z * front.m_z,
+			m_x * up.m_x + m_y * up.m_y + m_z * up.m_z,
+			m_x * right.m_x + m_y * right.m_y + m_z * right.m_z,
+			ndFloat32(0.0f));
+#else
+		__m128 tmp0(_mm_mul_ps(m_type, front.m_type));
+		__m128 tmp1(_mm_mul_ps(m_type, up.m_type));
+		__m128 tmp2(_mm_unpacklo_ps(tmp0, tmp1));
+		__m128 tmp3(_mm_unpackhi_ps(tmp0, tmp1));
+		__m128 tmp4(_mm_add_ps(tmp2, tmp3));
+
+		__m128 tmp5(_mm_mul_ps(m_type, right.m_type));
+		__m128 tmp6(_mm_shuffle_ps(tmp5, tmp5, PERMUTE_MASK(3, 2, 3, 0)));
+		__m128 tmp7(_mm_shuffle_ps(tmp5, tmp5, PERMUTE_MASK(3, 3, 3, 1)));
+		__m128 tmp8(_mm_add_ps(tmp6, tmp7));
+
+		__m128 tmp9(_mm_movelh_ps(tmp4, tmp8));
+		__m128 tmp10(_mm_movehl_ps(tmp8, tmp4));
+		return ndVector(_mm_add_ps(tmp9, tmp10));
+#endif
+	}
+
 	inline static void Transpose4x4 (ndVector& dst0, ndVector& dst1, ndVector& dst2, ndVector& dst3, const ndVector& src0, const ndVector& src1, const ndVector& src2, const ndVector& src3)
 	{
 		__m128 tmp0 (_mm_unpacklo_ps (src0.m_type, src1.m_type));
@@ -477,17 +508,6 @@ class ndVector
 		dst2 = ndVector (_mm_movelh_ps (tmp2, tmp3));
 		dst3 = ndVector (_mm_movehl_ps (tmp3, tmp2));
 	}
-
-#ifdef _DEBUG
-	//inline void Trace(char* const name) const
-	inline void Trace(char* const) const
-	{
-		ndAssert(0);
-		//dTrace(("%s %f %f %f %f\n", name, m_x, m_y, m_z, m_w));
-	}
-#else 
-	inline void Trace(char* const) const {}
-#endif
 
 	union 
 	{
@@ -528,7 +548,6 @@ class ndVector
 	D_CORE_API static ndVector m_triplexMask;
 } D_GCC_NEWTON_ALIGN_16 ;
 #endif
-
 
 // *****************************************************************************************
 //
@@ -659,7 +678,6 @@ class ndBigVector
 
 	inline ndFloat64 GetScalar() const
 	{
-		//return m_x;
 		return _mm_cvtsd_f64(m_typeLow);
 	}
 
@@ -808,14 +826,51 @@ class ndBigVector
 		return ndBigVector(_mm_min_pd(m_typeLow, data.m_typeLow), _mm_min_pd(m_typeHigh, data.m_typeHigh));
 	}
 
+	inline ndBigVector Floor() const
+	{
+#ifdef D_USE_64_BIT_SIMD_INT
+		ndInt64 x = _mm_cvtsd_si64(m_typeLow);
+		ndInt64 y = _mm_cvtsd_si64(_mm_unpackhi_pd(m_typeLow, m_typeLow));
+		ndInt64 z = _mm_cvtsd_si64(m_typeHigh);
+		ndInt64 w = _mm_cvtsd_si64(_mm_unpackhi_pd(m_typeHigh, m_typeHigh));
+
+		__m128d one(ndBigVector::m_one.m_typeLow);
+		__m128d xy(_mm_unpacklo_pd(_mm_cvtsi64_sd(m_typeHigh, x), _mm_cvtsi64_sd(m_typeHigh, y)));
+		__m128d zw(_mm_unpacklo_pd(_mm_cvtsi64_sd(m_typeHigh, z), _mm_cvtsi64_sd(m_typeHigh, w)));
+		
+		__m128d xy_round(_mm_and_pd(one, _mm_cmplt_pd(m_typeLow, xy)));
+		__m128d zw_round(_mm_and_pd(one, _mm_cmplt_pd(m_typeHigh, zw)));
+		return ndBigVector(_mm_sub_pd(xy, xy_round), _mm_sub_pd(zw, zw_round));
+#else
+		return ndBigVector(floor(m_x), floor(m_y), floor(m_z), floor(m_w));
+#endif
+	}
+
 	inline ndBigVector GetInt() const
 	{
+#ifdef D_USE_64_BIT_SIMD_INT
+		ndInt64 x = _mm_cvtsd_si64(m_typeLow);
+		ndInt64 y = _mm_cvtsd_si64(_mm_unpackhi_pd(m_typeLow, m_typeLow));
+		ndInt64 z = _mm_cvtsd_si64(m_typeHigh);
+		ndInt64 w = _mm_cvtsd_si64(_mm_unpackhi_pd(m_typeHigh, m_typeHigh));
+
+		__m128i xy_int(_mm_set_epi64x(y, x));
+		__m128i zw_int(_mm_set_epi64x(w, z));
+
+		__m128d xy_float(_mm_unpacklo_pd(_mm_cvtsi64_sd(m_typeHigh, x), _mm_cvtsi64_sd(m_typeHigh, y)));
+		__m128d zw_float(_mm_unpacklo_pd(_mm_cvtsi64_sd(m_typeHigh, z), _mm_cvtsi64_sd(m_typeHigh, w)));
+
+		__m128i xy_round(_mm_castpd_si128(_mm_cmplt_pd(m_typeLow, xy_float)));
+		__m128i zw_round(_mm_castpd_si128(_mm_cmplt_pd(m_typeHigh, zw_float)));
+		return ndBigVector(_mm_add_epi64(xy_int, xy_round), _mm_add_epi64(zw_int, zw_round));
+#else
 		ndBigVector temp(Floor());
 		ndInt64 x = _mm_cvtsd_si32(temp.m_typeLow);
-		ndInt64 y = _mm_cvtsd_si32(_mm_shuffle_pd(temp.m_typeLow, temp.m_typeLow, PERMUT_MASK_DOUBLE(1, 1)));
+		ndInt64 y = _mm_cvtsd_si32(_mm_unpackhi_pd(temp.m_typeLow, temp.m_typeLow));
 		ndInt64 z = _mm_cvtsd_si32(temp.m_typeHigh);
-		ndInt64 w = _mm_cvtsd_si32(_mm_shuffle_pd(temp.m_typeHigh, temp.m_typeHigh, PERMUT_MASK_DOUBLE(1, 1)));
-		return ndBigVector(_mm_set_epi64x(y, x), _mm_set_epi64x(w, z));
+		ndInt64 w = _mm_cvtsd_si32(_mm_unpackhi_pd(temp.m_typeHigh, temp.m_typeHigh));
+		return ndBigVector(_mm_set_pd(*(ndFloat32*)&y, *(ndFloat32*)&x), _mm_set_pd(*(ndFloat32*)&w, *(ndFloat32*)&z));
+#endif
 	}
 
 	// relational operators
@@ -898,14 +953,28 @@ class ndBigVector
 		return _mm_movemask_pd(m_typeLow) | (_mm_movemask_pd(m_typeHigh) << 2);
 	}
 
-	inline ndBigVector Floor() const
-	{
-		return ndBigVector(floor(m_x), floor(m_y), floor(m_z), floor(m_w));
-	}
-
 	inline ndBigVector TestZero() const
 	{
 		return m_negOne & (*this == m_zero);
+	}
+
+	inline ndBigVector OptimizedVectorUnrotate(const ndBigVector& front, const ndBigVector& up, const ndBigVector& right) const
+	{
+#if 0
+		return ndBigVector(
+			m_x * front.m_x + m_y * front.m_y + m_z * front.m_z,
+			m_x * up.m_x + m_y * up.m_y + m_z * up.m_z,
+			m_x * right.m_x + m_y * right.m_y + m_z * right.m_z,
+			ndFloat64(0.0f));
+#else
+		__m128d tmp0(_mm_add_pd(_mm_mul_pd(m_typeLow, front.m_typeLow), _mm_mul_pd(m_typeHigh, front.m_typeHigh)));
+		__m128d tmp1(_mm_add_pd(_mm_mul_pd(m_typeLow, up.m_typeLow), _mm_mul_pd(m_typeHigh, up.m_typeHigh)));
+		__m128d tmp2(_mm_add_pd(_mm_mul_pd(m_typeLow, right.m_typeLow), _mm_mul_pd(m_typeHigh, right.m_typeHigh)));
+
+		__m128d tmp3(_mm_add_pd(_mm_unpacklo_pd(tmp0, tmp1), _mm_unpackhi_pd(tmp0, tmp1)));
+		__m128d tmp4(_mm_unpackhi_pd(_mm_add_pd(tmp2, _mm_unpacklo_pd(tmp2, tmp2)), right.m_typeHigh));
+		return ndBigVector(tmp3, tmp4);
+#endif
 	}
 
 	inline static void Transpose4x4(ndBigVector& dst0, ndBigVector& dst1, ndBigVector& dst2, ndBigVector& dst3,

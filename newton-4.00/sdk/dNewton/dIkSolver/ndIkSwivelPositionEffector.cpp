@@ -13,6 +13,26 @@
 #include "ndNewtonStdafx.h"
 #include "ndIkSwivelPositionEffector.h"
 
+ndIkSwivelPositionEffector::ndIkSwivelPositionEffector()
+	:ndJointBilateralConstraint()
+	,m_localTargetPosit(ndVector::m_wOne)
+	,m_swivelAngle(ndFloat32(0.0f))
+	,m_angularSpring(ndFloat32(1000.0f))
+	,m_angularDamper(ndFloat32(50.0f))
+	,m_angularMaxTorque(D_LCP_MAX_VALUE)
+	,m_angularRegularizer(ndFloat32(5.0e-3f))
+	,m_linearSpring(ndFloat32(1000.0f))
+	,m_linearDamper(ndFloat32(50.0f))
+	,m_linearMaxForce(D_LCP_MAX_VALUE)
+	,m_linearRegularizer(ndFloat32(5.0e-3f))
+	,m_minWorkSpaceRadio(ndFloat32(0.0f))
+	,m_maxWorkSpaceRadio(ndFloat32(0.0f))
+	,m_rotationOrder(m_pitchYawRoll)
+	,m_enableSwivelControl(true)
+{
+	m_maxDof = 6;
+}
+
 ndIkSwivelPositionEffector::ndIkSwivelPositionEffector(const ndVector& childPivot, const ndMatrix& pinAndPivotParent, ndBodyKinematic* const child, ndBodyKinematic* const parent)
 	:ndJointBilateralConstraint(6, child, parent, pinAndPivotParent)
 	,m_localTargetPosit(ndVector::m_wOne)
@@ -55,6 +75,16 @@ bool ndIkSwivelPositionEffector::GetSwivelMode() const
 void ndIkSwivelPositionEffector::SetSwivelMode(bool active)
 {
 	m_enableSwivelControl = active;
+}
+
+ndIkSwivelPositionEffector::ndRotationOrder ndIkSwivelPositionEffector::GetRotationOrder() const
+{
+	return m_rotationOrder;
+}
+
+void ndIkSwivelPositionEffector::SetRotationOrder(ndRotationOrder order)
+{
+	m_rotationOrder = order;
 }
 
 ndFloat32 ndIkSwivelPositionEffector::GetSwivelAngle() const
@@ -185,13 +215,11 @@ void ndIkSwivelPositionEffector::DebugJoint(ndConstraintDebugCallback& debugCall
 	ndMatrix matrix0;
 	ndMatrix matrix1;
 	CalculateGlobalMatrix(matrix0, matrix1);
+	debugCallback.DrawFrame(matrix1, ndFloat32 (0.5f));
+	debugCallback.DrawLine(matrix0.m_posit, matrix1.m_posit, ndVector(ndFloat32(0.5f), ndFloat32(0.5f), ndFloat32(0.0f), ndFloat32(1.0f)));
 
 	ndMatrix swivelMatrix0(CalculateSwivelFrame(matrix1));
 	ndMatrix swivelMatrix1(ndPitchMatrix(m_swivelAngle) * swivelMatrix0);
-	debugCallback.DrawLine(matrix0.m_posit, matrix1.m_posit, ndVector(ndFloat32(1.0f), ndFloat32(1.0f), ndFloat32(0.0f), ndFloat32(1.0f)));
-	
-	//debugCallback.DrawFrame(matrix0, 0.5f);
-	debugCallback.DrawFrame(matrix1);
 	debugCallback.DrawFrame(swivelMatrix0);
 	debugCallback.DrawFrame(swivelMatrix1);
 	debugCallback.DrawPoint(swivelMatrix0.m_posit, ndVector(1.0f, 1.0f, 0.0f, 0.0f), 8.0f);

@@ -53,6 +53,14 @@ class ndBvhRay: public ndFastRay
 	const ndShapeStatic_bvh* m_me;
 } D_GCC_NEWTON_ALIGN_32;
 
+
+ndShapeStatic_bvh::ndShapeStatic_bvh()
+	:ndShapeStaticMesh(m_boundingBoxHierachy)
+	,ndAabbPolygonSoup()
+	,m_trianglesCount(0)
+{
+}
+
 ndShapeStatic_bvh::ndShapeStatic_bvh(const ndPolygonSoupBuilder& builder)
 	:ndShapeStaticMesh(m_boundingBoxHierachy)
 	,ndAabbPolygonSoup()
@@ -208,9 +216,9 @@ ndIntersectStatus ndShapeStatic_bvh::CalculateHash(
 	{
 		ndInt32 j = indexArray[i];
 		ndVector p(polygon[j * stride + 0], polygon[j * stride + 1], polygon[j * stride + 2], ndFloat32(0.0f));
-		*hash = dCRC64(&p.m_x, ndInt32 (sizeof(ndVector)), *hash);
+		*hash = ndCRC64(&p.m_x, ndInt32 (sizeof(ndVector)), *hash);
 	}
-	*hash = dCRC64(&indexArray[indexCount], ndInt32 (sizeof(ndInt32)), *hash);
+	*hash = ndCRC64(&indexArray[indexCount], ndInt32 (sizeof(ndInt32)), *hash);
 
 	return m_continueSearh;
 }

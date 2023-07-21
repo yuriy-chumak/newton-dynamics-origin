@@ -13,11 +13,18 @@
 #include "ndNewtonStdafx.h"
 #include "ndJointPlane.h"
 
+ndJointPlane::ndJointPlane()
+	:ndJointBilateralConstraint()
+	,m_enableControlRotation(true)
+{
+	m_maxDof = 5;
+}
+
 ndJointPlane::ndJointPlane (const ndVector& pivot, const ndVector& normal, ndBodyKinematic* const child, ndBodyKinematic* const parent)
 	:ndJointBilateralConstraint(5, child, parent, ndGetIdentityMatrix())
 	,m_enableControlRotation(true)
 {
-	ndMatrix pinAndPivotFrame(normal);
+	ndMatrix pinAndPivotFrame(ndGramSchmidtMatrix(normal));
 	pinAndPivotFrame.m_posit = pivot;
 	pinAndPivotFrame.m_posit.m_w = 1.0f;
 	// calculate the two local matrix of the pivot point

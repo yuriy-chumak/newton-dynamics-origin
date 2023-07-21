@@ -32,9 +32,9 @@ ndFileFormatShapeConvexBox::ndFileFormatShapeConvexBox(const char* const classNa
 {
 }
 
-ndInt32 ndFileFormatShapeConvexBox::SaveShape(ndFileFormat* const scene, nd::TiXmlElement* const parentNode, const ndShape* const shape)
+ndInt32 ndFileFormatShapeConvexBox::SaveShape(ndFileFormatSave* const scene, nd::TiXmlElement* const parentNode, const ndShape* const shape)
 {
-	nd::TiXmlElement* const classNode = xmlCreateClassNode(parentNode, "ndShape", ndShapeBox::StaticClassName());
+	nd::TiXmlElement* const classNode = xmlCreateClassNode(parentNode, D_SHAPE_CLASS, ndShapeBox::StaticClassName());
 	ndFileFormatShapeConvex::SaveShape(scene, classNode, shape);
 
 	const ndShapeBox* const subShape = (ndShapeBox*)shape;
@@ -42,4 +42,10 @@ ndInt32 ndFileFormatShapeConvexBox::SaveShape(ndFileFormat* const scene, nd::TiX
 	ndVector size(subShape->m_size[0].Scale (ndFloat32 (2.0f)));
 	xmlSaveParam(classNode, "size", size);
 	return xmlGetNodeId(classNode);
+}
+
+ndShape* ndFileFormatShapeConvexBox::LoadShape(const nd::TiXmlElement* const node, const ndTree<ndShape*, ndInt32>&)
+{
+	ndVector size(xmlGetVector3(node, "size"));
+	return new ndShapeBox(size.m_x, size.m_y, size.m_z);
 }

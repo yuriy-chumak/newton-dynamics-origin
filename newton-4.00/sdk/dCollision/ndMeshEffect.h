@@ -221,6 +221,7 @@ class ndMeshEffect: public ndPolyhedra
 		m_material,
 		m_layer,
 		m_point,
+		m_weight,
 	};
 
 	template<class T, ndChannelType type>
@@ -236,6 +237,102 @@ class ndMeshEffect: public ndPolyhedra
 		
 		ndChannelType m_type;
 		bool m_isValid;
+	};
+
+	public:
+	class ndUV
+	{
+		public:
+		ndUV()
+		{
+		}
+
+		ndUV(ndFloat32 x, ndFloat32 y)
+			:m_u(ndReal(x))
+			,m_v(ndReal(y))
+		{
+		}
+		ndReal m_u;
+		ndReal m_v;
+	};
+
+	class ndNormal
+	{
+		public:
+		ndNormal()
+		{
+		}
+		ndNormal(ndFloat32 x, ndFloat32 y, ndFloat32 z)
+			:m_x(ndReal(x))
+			,m_y(ndReal(y))
+			,m_z(ndReal(z))
+		{
+		}
+		ndReal m_x;
+		ndReal m_y;
+		ndReal m_z;
+	};
+
+	class ndColor : public ndNormal
+	{
+		public:
+		ndColor()
+			:ndNormal()
+		{
+		}
+
+		ndColor(ndFloat32 x, ndFloat32 y, ndFloat32 z, ndFloat32 w)
+			:ndNormal(x, y, z)
+			,m_w(ndReal(w))
+		{
+		}
+
+		ndReal m_w;
+	};
+
+	class ndVertexWeight
+	{
+		public:
+		#define ND_VERTEX_WEIGHT_SIZE 4
+		ndVertexWeight()
+		{
+			Clear();
+		}
+
+		void Clear()
+		{
+			for (ndInt32 i = 0; i < ND_VERTEX_WEIGHT_SIZE; ++i)
+			{
+				m_boneId[i] = -1;
+				m_weight[i] = ndReal(0.0f);
+			}
+		}
+
+		void SetWeight(ndInt32 hash, ndReal weight)
+		{
+			ndAssert(weight > ndFloat32(0.0f));
+			if (weight > ndFloat32(1.0e-3f))
+			{
+				ndInt32 index = ND_VERTEX_WEIGHT_SIZE - 1;
+				ndReal lowest = m_weight[index];
+				for (ndInt32 i = index - 1; i >= 0; --i)
+				{
+					if (m_weight[i] <= lowest)
+					{
+						index = i;
+						lowest = m_weight[i];
+					}
+				}
+				if (weight > lowest)
+				{
+					m_boneId[index] = hash;
+					m_weight[index] = weight;
+				}
+			}
+		}
+
+		ndReal m_weight[ND_VERTEX_WEIGHT_SIZE];
+		ndInt32 m_boneId[ND_VERTEX_WEIGHT_SIZE];
 	};
 
 	class ndFormat
@@ -279,26 +376,20 @@ class ndMeshEffect: public ndPolyhedra
 		public:
 		ndChannel<ndInt32, m_layer> m_layers;
 		ndChannel<ndBigVector, m_point> m_vertex;
+		ndChannel<ndVertexWeight, m_weight> m_skinWeights;
 	};
 
 	class ndAttibutFormat: public ndFormat
 	{
 		public:
-		class dgUV
-		{
-			public:
-			ndFloat32 m_u;
-			ndFloat32 m_v;
-		};
-
 		ndAttibutFormat();
 		ndAttibutFormat(const ndAttibutFormat& source);
 		~ndAttibutFormat();
 
 		void Clear();
 		void SetCount(ndInt32 count);
-		void CopyFrom(const ndAttibutFormat& source);
-		void CopyEntryFrom(ndInt32 index, const ndAttibutFormat& source, ndInt32 sourceIndex);
+		//void CopyFrom(const ndAttibutFormat& source);
+		//void CopyEntryFrom(ndInt32 index, const ndAttibutFormat& source, ndInt32 sourceIndex);
 		void CompactVertexData(const ndPointFormat& points, ndInt32* const indexList, ndFloat32 tol);
 
 		private:
@@ -307,14 +398,13 @@ class ndMeshEffect: public ndPolyhedra
 		public:
 		ndChannel<ndInt32, m_vertex> m_pointChannel;
 		ndChannel<ndInt32, m_material> m_materialChannel;
-		ndChannel<ndTriplex, m_normal> m_normalChannel;
-		ndChannel<ndTriplex, m_binormal> m_binormalChannel;
-		ndChannel<ndVector, m_color> m_colorChannel;
-		ndChannel<dgUV, m_uv0> m_uv0Channel;
-		ndChannel<dgUV, m_uv1> m_uv1Channel;
+		ndChannel<ndNormal, m_normal> m_normalChannel;
+		ndChannel<ndNormal, m_binormal> m_binormalChannel;
+		ndChannel<ndColor, m_color> m_colorChannel;
+		ndChannel<ndUV, m_uv0> m_uv0Channel;
+		ndChannel<ndUV, m_uv1> m_uv1Channel;
 	};
 
-	public:
 	class ndMaterial
 	{
 		public:
@@ -325,7 +415,6 @@ class ndMeshEffect: public ndPolyhedra
 			,m_opacity(ndFloat32(1.0f))
 			,m_shiness(ndFloat32 (60.0f))
 		{
-			//m_textureName[0] = 0;
 			strcpy(m_textureName, "default.tga");
 		}
 
@@ -337,58 +426,60 @@ class ndMeshEffect: public ndPolyhedra
 		char m_textureName[32];
 	};
 
-	class dMeshVertexFormat
+	class ndMeshVertexFormat
 	{
 		public:
-		class dDoubleData
+		template <class T>
+		class ndData
 		{
 			public:
-			const ndFloat64* m_data;
-			const ndInt32* m_indexList;
+			ndData()
+			{
+				Clear();
+			}
+
+			void Clear()
+			{
+				m_data = nullptr;
+				m_indexList = nullptr;
+				m_strideInBytes = 0;
+			}
+
+			T* m_data;
+			ndInt32* m_indexList;
 			ndInt32 m_strideInBytes;
 		};
 
-		class dFloatData
-		{
-			public:
-			const ndFloat32* m_data;
-			const ndInt32* m_indexList;
-			ndInt32 m_strideInBytes;
-		};
-
-		dMeshVertexFormat()
+		ndMeshVertexFormat()
 		{
 			Clear();
 		}
 
 		void Clear()
 		{
-			memset(this, 0, sizeof(dMeshVertexFormat));
+			m_faceCount = 0;
+			m_faceMaterial = nullptr;
+			m_faceIndexCount = nullptr;
+
+			m_uv0.Clear();
+			m_uv1.Clear();
+			m_vertex.Clear();
+			m_normal.Clear();
+			m_binormal.Clear();
+			m_vertexColor.Clear();
+			m_vertexWeight.Clear();
 		}
 
 		ndInt32 m_faceCount;
-		const ndInt32* m_faceIndexCount;
-		const ndInt32* m_faceMaterial;
-		dDoubleData m_vertex;
-		dFloatData m_normal;
-		dFloatData m_binormal;
-		dFloatData m_uv0;
-		dFloatData m_uv1;
-		dFloatData m_vertexColor;
-	};
-
-	class dVertexCluster
-	{
-		public:
-		dVertexCluster()
-		{
-		}
-		ndArray<ndInt32> m_vertexIndex;
-		ndArray<ndFloat32> m_vertexWeigh;
-	};
-
-	class dClusterMap: public ndTree<dVertexCluster, const ndString>
-	{
+		ndInt32* m_faceMaterial;
+		ndInt32* m_faceIndexCount;
+		ndData<ndFloat64> m_vertex;
+		ndData<ndReal> m_normal;
+		ndData<ndReal> m_binormal;
+		ndData<ndReal> m_uv0;
+		ndData<ndReal> m_uv1;
+		ndData<ndReal> m_vertexColor;
+		ndData<ndVertexWeight> m_vertexWeight;
 	};
 	
 	D_COLLISION_API ndMeshEffect();
@@ -412,18 +503,16 @@ class ndMeshEffect: public ndPolyhedra
 	const ndFloat64* GetVertexPool() const;
 
 	ndInt32 GetFaceMaterial(ndEdge* const faceEdge) const;
+	ndInt32 GenerateVertexFormat(ndMeshVertexFormat& format, ndArray<ndUnsigned8>& buffer) const;
 
-	const dClusterMap& GetCluster() const;
-	D_COLLISION_API dVertexCluster* CreateCluster(const char* const name);
-	D_COLLISION_API dVertexCluster* FindCluster(const char* const name) const;
-
+	ndArray<ndVertexWeight>& GetVertexWeights();
 	D_COLLISION_API ndFloat64 CalculateVolume() const;
 	D_COLLISION_API ndMatrix CalculateOOBB(ndBigVector& size) const;
 	D_COLLISION_API void CalculateAABB(ndBigVector& min, ndBigVector& max) const;
 
 	D_COLLISION_API void ApplyTransform(const ndMatrix& matrix);
 	D_COLLISION_API void CalculateNormals(ndFloat64 angleInRadians);
-	D_COLLISION_API void BuildFromIndexList(const dMeshVertexFormat* const format);
+	D_COLLISION_API void BuildFromIndexList(const ndMeshVertexFormat* const format);
 	
 	D_COLLISION_API void GetVertexIndexChannel(ndInt32* const bufferOut) const;
 	D_COLLISION_API void GetVertexChannel64(ndInt32 strideInByte, ndFloat64* const bufferOut) const;
@@ -433,6 +522,7 @@ class ndMeshEffect: public ndPolyhedra
 	D_COLLISION_API void GetUV0Channel(ndInt32 strideInByte, ndFloat32* const bufferOut) const;
 	D_COLLISION_API void GetUV1Channel(ndInt32 strideInByte, ndFloat32* const bufferOut) const;
 	D_COLLISION_API void GetVertexColorChannel(ndInt32 strideInByte, ndFloat32* const bufferOut) const;
+	D_COLLISION_API void GetVertexWeightChannel(ndInt32 strideInByte, ndVertexWeight* const bufferOut) const;
 
 	D_COLLISION_API ndIndexArray* MaterialGeometryBegin();
 		D_COLLISION_API ndInt32 GetFirstMaterial(ndIndexArray* const handle) const;
@@ -498,7 +588,6 @@ class ndMeshEffect: public ndPolyhedra
 	ndString m_name;
 	ndPointFormat m_points;
 	ndAttibutFormat m_attrib;
-	dClusterMap m_clusters;
 	ndArray<ndMaterial> m_materials;
 	ndInt32 m_vertexBaseCount;
 	ndInt32 m_constructionIndex;
@@ -591,12 +680,14 @@ void ndMeshEffect::ndChannel<T, type>::PushBack(const T& element)
 inline ndMeshEffect::ndPointFormat::ndPointFormat()
 	:m_layers()
 	,m_vertex()
+	,m_skinWeights()
 {
 }
 
 inline ndMeshEffect::ndPointFormat::ndPointFormat(const ndPointFormat& source)
 	:m_layers(source.m_layers)
 	,m_vertex(source.m_vertex)
+	,m_skinWeights(source.m_skinWeights)
 {
 }
 
@@ -608,6 +699,7 @@ inline void ndMeshEffect::ndPointFormat::Clear()
 {
 	m_layers.Clear();
 	m_vertex.Clear();
+	m_skinWeights.Clear();
 }
 
 inline void ndMeshEffect::ndPointFormat::SetCount(ndInt32 count)
@@ -615,8 +707,17 @@ inline void ndMeshEffect::ndPointFormat::SetCount(ndInt32 count)
 	m_vertex.Resize(count);
 	m_vertex.SetCount(count);
 
-	m_layers.Resize(count);
-	m_layers.SetCount(count);
+	if (m_layers.GetCount())
+	{
+		m_layers.Resize(count);
+		m_layers.SetCount(count);
+	}
+
+	if (m_skinWeights.GetCount())
+	{
+		m_skinWeights.Resize(count);
+		m_skinWeights.SetCount(count);
+	}
 }
 
 inline ndMeshEffect::ndAttibutFormat::ndAttibutFormat()
@@ -658,26 +759,47 @@ inline void ndMeshEffect::ndAttibutFormat::Clear()
 
 inline void ndMeshEffect::ndAttibutFormat::SetCount(ndInt32 count)
 {
-	m_pointChannel.Resize(count);
-	m_pointChannel.SetCount(count);
+	if (m_pointChannel.GetCount())
+	{
+		m_pointChannel.Resize(count);
+		m_pointChannel.SetCount(count);
+	}
 
-	m_materialChannel.Resize(count);
-	m_materialChannel.SetCount(count);
+	if (m_materialChannel.GetCount())
+	{
+		m_materialChannel.Resize(count);
+		m_materialChannel.SetCount(count);
+	}
 
-	m_normalChannel.Resize(count);
-	m_normalChannel.SetCount(count);
+	if (m_normalChannel.GetCount())
+	{
+		m_normalChannel.Resize(count);
+		m_normalChannel.SetCount(count);
+	}
 
-	m_binormalChannel.Resize(count);
-	m_binormalChannel.SetCount(count);
+	if (m_binormalChannel.GetCount())
+	{
+		m_binormalChannel.Resize(count);
+		m_binormalChannel.SetCount(count);
+	}
 
-	m_colorChannel.Resize(count);
-	m_colorChannel.SetCount(count);
+	if (m_colorChannel.GetCount())
+	{
+		m_colorChannel.Resize(count);
+		m_colorChannel.SetCount(count);
+	}
 
-	m_uv0Channel.Resize(count);
-	m_uv0Channel.SetCount(count);
+	if (m_uv0Channel.GetCount())
+	{
+		m_uv0Channel.Resize(count);
+		m_uv0Channel.SetCount(count);
+	}
 
-	m_uv1Channel.Resize(count);
-	m_uv1Channel.SetCount(count);
+	if (m_uv1Channel.GetCount())
+	{
+		m_uv1Channel.Resize(count);
+		m_uv1Channel.SetCount(count);
+	}
 }
 
 inline ndInt32 ndMeshEffect::GetPropertiesCount() const
@@ -734,9 +856,8 @@ inline ndMeshEffect* ndMeshEffect::GetNextLayer(ndMeshEffect* const layerSegment
 	return GetNextLayer(layerSegment->IncLRU() - 1);
 }
 
-inline const ndMeshEffect::dClusterMap& ndMeshEffect::GetCluster() const
+inline ndArray<ndMeshEffect::ndVertexWeight>& ndMeshEffect::GetVertexWeights()
 {
-	return m_clusters;
+	return m_points.m_skinWeights;
 }
-
 #endif

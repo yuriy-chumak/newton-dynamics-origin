@@ -20,7 +20,7 @@
 */
 
 #include "ndFileFormatStdafx.h"
-#include "ndFileFormat.h"
+#include "ndFileFormatSave.h"
 #include "ndFileFormatShapeStaticProceduralMesh.h"
 
 ndFileFormatShapeStaticProceduralMesh::ndFileFormatShapeStaticProceduralMesh()
@@ -33,9 +33,17 @@ ndFileFormatShapeStaticProceduralMesh::ndFileFormatShapeStaticProceduralMesh(con
 {
 }
 
-ndInt32 ndFileFormatShapeStaticProceduralMesh::SaveShape(ndFileFormat* const scene, nd::TiXmlElement* const parentNode, const ndShape* const shape)
+ndInt32 ndFileFormatShapeStaticProceduralMesh::SaveShape(ndFileFormatSave* const scene, nd::TiXmlElement* const parentNode, const ndShape* const shape)
 {
-	nd::TiXmlElement* const classNode = xmlCreateClassNode(parentNode, "ndShape", ndShapeStaticProceduralMesh::StaticClassName());
+	nd::TiXmlElement* const classNode = xmlCreateClassNode(parentNode, D_SHAPE_CLASS, ndShapeStaticProceduralMesh::StaticClassName());
 	ndFileFormatShapeStaticMesh::SaveShape(scene, classNode, shape);
+	//xmlSaveParam(classNode, "size", shape->GetObbSize());
 	return xmlGetNodeId(classNode);
+}
+
+ndShape* ndFileFormatShapeStaticProceduralMesh::LoadShape(const nd::TiXmlElement* const, const ndTree<ndShape*, ndInt32>&)
+{
+	//ndVector size (xmlGetVector3(node, "size") * ndVector::m_two);
+	ndShapeStaticProceduralMesh* const staticMesh = new ndShapeStaticProceduralMesh(ndFloat32 (0.0f), ndFloat32(0.0f), ndFloat32(0.0f));
+	return staticMesh;
 }

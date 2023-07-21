@@ -22,17 +22,20 @@
 #ifndef __ND_CUDA_DEVICE_BUFFER_H__
 #define __ND_CUDA_DEVICE_BUFFER_H__
 
-//ndCudaUtils.h
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "ndCudaUtils.h"
 #include "ndCudaIntrinsics.h"
 
 template<class T>
+class ndCudaHostBuffer;
+
+template<class T>
 class ndCudaDeviceBuffer
 {
 	public:
 	ndCudaDeviceBuffer();
+	ndCudaDeviceBuffer(const ndCudaDeviceBuffer& src);
 	~ndCudaDeviceBuffer();
 
 	int GetCount() const;
@@ -44,6 +47,9 @@ class ndCudaDeviceBuffer
 
 	T& operator[] (int i);
 	const T& operator[] (int i) const;
+
+	ndCudaDeviceBuffer& operator= (const ndCudaHostBuffer<T>& src);
+	ndCudaDeviceBuffer& operator= (const ndCudaDeviceBuffer<T>& src);
 
 	void ReadData(const T* const src, int elements);
 	void WriteData(T* const dst, int elements) const;
@@ -67,7 +73,7 @@ class ndAssessor
 	{
 	}
 
-	__device__ __host__ ndAssessor(ndCudaDeviceBuffer<T>& buffer)
+	__device__ __host__ ndAssessor(const ndCudaDeviceBuffer<T>& buffer)
 		:m_array(buffer.m_array)
 		,m_size(buffer.m_size)
 		,m_capacity(buffer.m_capacity)
@@ -100,6 +106,21 @@ ndCudaDeviceBuffer<T>::ndCudaDeviceBuffer()
 }
 
 template<class T>
+ndCudaDeviceBuffer<T>::ndCudaDeviceBuffer(const ndCudaDeviceBuffer<T>& src)
+	:m_array(SetCount(src.GetCount()))
+	,m_size(src.m_size)
+	,m_capacity(src.m_capacity)
+{
+	cudaError_t cudaStatus = cudaSuccess;
+	cudaStatus = cudaMemcpy(m_array, src.m_array, m_size * sizeof(T), cudaMemcpyDeviceToDevice);
+	ndAssert(cudaStatus == cudaSuccess);
+	if (cudaStatus != cudaSuccess)
+	{
+		ndAssert(0);
+	}
+}
+
+template<class T>
 ndCudaDeviceBuffer<T>::~ndCudaDeviceBuffer()
 {
 	if (m_array)
@@ -128,6 +149,35 @@ T& ndCudaDeviceBuffer<T>::operator[] (int i)
 	ndAssert(i >= 0);
 	ndAssert(i < m_size);
 	return m_array[i];
+}
+
+template<class T>
+ndCudaDeviceBuffer<T>& ndCudaDeviceBuffer<T>::operator= (const ndCudaDeviceBuffer<T>& src)
+{
+	cudaError_t cudaStatus;
+	SetCount(src.GetCount());
+	cudaStatus = cudaMemcpy(m_array, src.m_array, m_size * sizeof(T), cudaMemcpyDeviceToDevice);
+	ndAssert(cudaStatus == cudaSuccess);
+	if (cudaStatus != cudaSuccess)
+	{
+		ndAssert(0);
+	}
+	return *this;
+}
+
+template<class T>
+ndCudaDeviceBuffer<T>& ndCudaDeviceBuffer<T>::operator= (const ndCudaHostBuffer<T>& src)
+{
+	cudaError_t cudaStatus;
+	SetCount(src.GetCount());
+	cudaStatus = cudaMemcpy(m_array, src.m_array, m_size * sizeof(T), cudaMemcpyHostToDevice);
+	ndAssert(cudaStatus == cudaSuccess);
+	if (cudaStatus != cudaSuccess)
+	{
+		ndAssert(0);
+	}
+
+	return *this;
 }
 
 template<class T>
@@ -204,15 +254,26 @@ void ndCudaDeviceBuffer<T>::Resize(int newSize)
 template<class T>
 void ndCudaDeviceBuffer<T>::ReadData(const T* const src, int elements)
 {
+	cudaError_t cudaStatus;
 	ndAssert(elements <= m_size);
-	cudaMemcpy(m_array, src, sizeof (T) * elements, cudaMemcpyHostToDevice);
+	cudaStatus = cudaMemcpy(m_array, src, sizeof (T) * elements, cudaMemcpyHostToDevice);
+	ndAssert(cudaStatus == cudaSuccess);
+	if (cudaStatus != cudaSuccess)
+	{
+		ndAssert(0);
+	}
 }
 
 template<class T>
 void ndCudaDeviceBuffer<T>::WriteData(T* const dst, int elements) const
 {
+	cudaError_t cudaStatus;
 	ndAssert(m_size <= elements);
-	cudaMemcpy(dst, m_array, sizeof(T) * elements, cudaMemcpyDeviceToHost);
+	cudaStatus = cudaMemcpy(dst, m_array, sizeof(T) * elements, cudaMemcpyDeviceToHost);
+	if (cudaStatus != cudaSuccess)
+	{
+		ndAssert(0);
+	}
 }
 
 template<class T>

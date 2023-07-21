@@ -80,8 +80,13 @@ class ndShapeMaterial
 {
 	public:
 	ndShapeMaterial()
+		:m_userId(0)
 	{
-		memset(this, 0, sizeof(ndShapeMaterial));
+		m_data.m_alignPad = 0;
+		for (ndInt32 i = 0; i < sizeof(m_userParam) / sizeof(m_userParam[0]); ++i)
+		{
+			m_userParam[i].m_intData = 0;
+		}
 	}
 
 	ndInt64 m_userId;
@@ -93,6 +98,7 @@ class ndShapeMaterial
 
 	union dExtraData
 	{
+		void* m_ptrData;
 		ndFloat32 m_floatData;
 		ndUnsigned64 m_intData;
 	} m_userParam[6];
@@ -277,15 +283,22 @@ class ndShape: public ndContainersFreeListAlloc<ndShape>
 } D_GCC_NEWTON_ALIGN_32;
 
 inline ndShapeInfo::ndShapeInfo()
+	:m_offsetMatrix(ndGetIdentityMatrix())
+	,m_scale(ndFloat32 (1.0f))
+	,m_shapeMaterial()
+	,m_collisionType(::m_box)
 {
-	memset(this, 0, sizeof(ndShapeInfo));
+	for (ndInt32 i = 0; i < sizeof(m_paramArray) / sizeof(m_paramArray[0]); ++i)
+	{
+		m_paramArray[i] = ndFloat32(0);
+	}
 }
 
 inline ndUnsigned64 ndShapeInfo::GetHash(ndUnsigned64 hash)
 {
 	ndInt32 id = m_collisionType;
-	hash = dCRC64(m_paramArray, sizeof (m_paramArray), hash);
-	hash = dCRC64(&id, sizeof(id), hash);
+	hash = ndCRC64(m_paramArray, sizeof (m_paramArray), hash);
+	hash = ndCRC64(&id, sizeof(id), hash);
 	return hash;
 }
 

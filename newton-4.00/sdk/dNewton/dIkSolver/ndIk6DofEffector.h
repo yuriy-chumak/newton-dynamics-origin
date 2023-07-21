@@ -26,6 +26,8 @@ class ndIk6DofEffector: public ndJointBilateralConstraint
 	};
 
 	D_CLASS_REFLECTION(ndIk6DofEffector, ndJointBilateralConstraint)
+
+	D_NEWTON_API ndIk6DofEffector();
 	D_NEWTON_API ndIk6DofEffector(const ndMatrix& pinAndPivotChild, const ndMatrix& pinAndPivotParent, ndBodyKinematic* const child, ndBodyKinematic* const parent);
 	D_NEWTON_API virtual ~ndIk6DofEffector();
 
@@ -33,6 +35,11 @@ class ndIk6DofEffector: public ndJointBilateralConstraint
 	D_NEWTON_API void EnableAxisY(bool state);
 	D_NEWTON_API void EnableAxisZ(bool state);
 	D_NEWTON_API void EnableRotationAxis(ndRotationType type);
+
+	D_NEWTON_API bool GetAxisX() const;
+	D_NEWTON_API bool GetAxisY() const;
+	D_NEWTON_API bool GetAxisZ() const;
+	D_NEWTON_API ndRotationType GetRotationAxis() const;
 
 	D_NEWTON_API ndMatrix GetOffsetMatrix() const;
 	D_NEWTON_API void SetOffsetMatrix(const ndMatrix& matrix);
@@ -48,11 +55,10 @@ class ndIk6DofEffector: public ndJointBilateralConstraint
 	
 	D_NEWTON_API ndFloat32 GetMaxTorque() const;
 	D_NEWTON_API void SetMaxTorque(ndFloat32 torque);
+	D_NEWTON_API void DebugJoint(ndConstraintDebugCallback& debugCallback) const;
 
 	protected:
 	D_NEWTON_API void JacobianDerivative(ndConstraintDescritor& desc);
-	D_NEWTON_API void DebugJoint(ndConstraintDebugCallback& debugCallback) const;
-
 	D_NEWTON_API void SubmitLinearAxis(const ndMatrix& matrix0, const ndMatrix& matrix1, ndConstraintDescritor& desc);
 	D_NEWTON_API void SubmitAngularAxis(const ndMatrix& matrix0, const ndMatrix& matrix1, ndConstraintDescritor& desc);
 	D_NEWTON_API void SubmitShortestPathAxis(const ndMatrix& matrix0, const ndMatrix& matrix1, ndConstraintDescritor& desc);
@@ -62,11 +68,13 @@ class ndIk6DofEffector: public ndJointBilateralConstraint
 	ndFloat32 m_angularDamper;
 	ndFloat32 m_angularMaxTorque;
 	ndFloat32 m_angularRegularizer;
+	ndFloat32 m_angularMaxSpringRamp;
 	
 	ndFloat32 m_linearSpring;
 	ndFloat32 m_linearDamper;
 	ndFloat32 m_linearMaxForce;
 	ndFloat32 m_linearRegularizer;
+	ndFloat32 m_linearMaxSpringRamp;
 
 	ndRotationType m_rotationType;
 	union

@@ -164,8 +164,14 @@ void ndJointKinematicController::SubmitConstraints (dFloat32 timestep, dInt32 th
 }
 #endif
 
+ndJointKinematicController::ndJointKinematicController()
+	:ndJointBilateralConstraint()
+{
+	m_maxDof = 6;
+}
+
 ndJointKinematicController::ndJointKinematicController(ndBodyKinematic* const body, ndBodyKinematic* const referenceBody, const ndVector& attachmentPointInGlobalSpace)
-	:ndJointBilateralConstraint(6, body, referenceBody, ndMatrix(attachmentPointInGlobalSpace))
+	:ndJointBilateralConstraint(6, body, referenceBody, ndGramSchmidtMatrix(attachmentPointInGlobalSpace))
 {
 	ndAssert(GetBody0() == body);
 	ndMatrix matrix(body->GetMatrix());
@@ -357,13 +363,13 @@ void ndJointKinematicController::JacobianDerivative(ndConstraintDescritor& desc)
 //m_maxAngularFriction = 10000.0f;
 //matrix1 = ndPitchMatrix(125.0f * ndDegreeToRad) * ndYawMatrix(-60.0f * ndDegreeToRad) * ndRollMatrix(80.0f * ndDegreeToRad);
 
-		const ndQuaternion rotation(matrix0.Inverse() * matrix1);
+		const ndQuaternion rotation(matrix0.OrthoInverse() * matrix1);
 		const ndVector pin(rotation & ndVector::m_triplexMask);
 		const ndFloat32 dirMag2 = pin.DotProduct(pin).GetScalar();
 		const ndFloat32 tol = ndFloat32(3.0f * ndPi / 180.0f);
 		if (dirMag2 > (tol * tol))
 		{
-			const ndMatrix basis(pin);
+			const ndMatrix basis(ndGramSchmidtMatrix(pin));
 			const ndFloat32 dirMag = ndSqrt(dirMag2);
 			const ndFloat32 angle = ndAtan2(dirMag, rotation.m_w);
 			AddAngularRowJacobian(desc, basis[0], angle);

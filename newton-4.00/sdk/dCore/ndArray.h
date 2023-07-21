@@ -29,10 +29,10 @@
 
 #include "ndCoreStdafx.h"
 #include "ndTypes.h"
-#include "ndRand.h"
 #include "ndUtils.h"
 #include "ndVector.h"
 #include "ndClassAlloc.h"
+#include "ndProbability.h"
 
 /// Generic template vector.
 /// note: this template vector is similar to std::vector but has some significant differences.
@@ -288,7 +288,8 @@ void ndArray<T>::RandomShuffle(ndInt32 count)
 	const ndInt32 size = ndMin (count, GetCount());
 	for (ndInt32 i = size - 1; i != 0; --i)
 	{
-		ndUnsigned32 j = ndUnsigned32(ndRandInt()) % size;
+		ndUnsigned32 randomeIndex = ndRandInt();
+		ndUnsigned32 j = randomeIndex % ndUnsigned32(size);
 		ndSwap (m_array[i], m_array[j]);
 	}
 }

@@ -861,6 +861,9 @@ ndMeshEffect* ndMeshEffect::Intersection (const dMatrix& matrix, const ndMeshEff
 // return -2 if function fail
 ndInt32 ndMeshEffect::PlaneClip(const ndMeshEffect& convexMesh, const ndEdge* const convexFace)
 {
+ndAssert(0);
+return 0;
+#if 0
 	ndAssert(convexFace->m_incidentFace > 0);
 
 	ndBigVector normal(convexMesh.FaceNormal(convexFace, &convexMesh.m_points.m_vertex[0].m_x, sizeof(ndBigVector)));
@@ -1110,11 +1113,7 @@ ndInt32 ndMeshEffect::PlaneClip(const ndMeshEffect& convexMesh, const ndEdge* co
 				m_attrib.m_pointChannel.PushBack(edge->m_incidentVertex);
 				if (m_attrib.m_normalChannel.GetCount())
 				{
-					ndTriplex n;
-					n.m_x = ndFloat32(normal.m_x);
-					n.m_y = ndFloat32(normal.m_y);
-					n.m_z = ndFloat32(normal.m_z);
-					m_attrib.m_normalChannel.PushBack(n);
+					m_attrib.m_normalChannel.PushBack(ndNormal(normal.m_x, normal.m_y, normal.m_z));
 				}
 
 				if (m_attrib.m_binormalChannel.GetCount())
@@ -1147,17 +1146,17 @@ ndInt32 ndMeshEffect::PlaneClip(const ndMeshEffect& convexMesh, const ndEdge* co
 				//alpha2 = 0.0;
 				if (m_attrib.m_uv0Channel.GetCount() && convexMesh.m_attrib.m_uv0Channel.GetCount())
 				{
-					ndAttibutFormat::dgUV uv;
-					uv.m_u = uv0[0].m_x * alpha0 + uv0[1].m_x * alpha1 + uv0[2].m_x * alpha2;
-					uv.m_v = uv0[0].m_y * alpha0 + uv0[1].m_y * alpha1 + uv0[2].m_y * alpha2;
+					ndUV uv(
+						uv0[0].m_x * alpha0 + uv0[1].m_x * alpha1 + uv0[2].m_x * alpha2,
+						uv0[0].m_y * alpha0 + uv0[1].m_y * alpha1 + uv0[2].m_y * alpha2);
 					m_attrib.m_uv0Channel.PushBack(uv);
 				}
 
 				if (m_attrib.m_uv1Channel.GetCount() && convexMesh.m_attrib.m_uv1Channel.GetCount())
 				{
-					ndAttibutFormat::dgUV uv;
-					uv.m_u = uv1[0].m_x * alpha0 + uv1[1].m_x * alpha1 + uv1[2].m_x * alpha2;
-					uv.m_v = uv1[0].m_y * alpha0 + uv1[1].m_y * alpha1 + uv1[2].m_y * alpha2;
+					ndUV uv(
+						uv1[0].m_x * alpha0 + uv1[1].m_x * alpha1 + uv1[2].m_x * alpha2,
+						uv1[0].m_y * alpha0 + uv1[1].m_y * alpha1 + uv1[2].m_y * alpha2);
 					m_attrib.m_uv1Channel.PushBack(uv);
 				}
 
@@ -1167,6 +1166,7 @@ ndInt32 ndMeshEffect::PlaneClip(const ndMeshEffect& convexMesh, const ndEdge* co
 	}
 
 	return retValue;
+#endif
 }
 ndMeshEffect* ndMeshEffect::ConvexMeshIntersection(const ndMeshEffect* const convexMeshSrc) const
 {
@@ -1210,6 +1210,9 @@ ndMeshEffect* ndMeshEffect::ConvexMeshIntersection(const ndMeshEffect* const con
 
 ndMeshEffect* ndMeshEffect::InverseConvexMeshIntersection(const ndMeshEffect* const convexMeshSrc) const
 {
+	ndAssert(0);
+	return 0;
+#if 0
 	ndMeshEffect concaveMesh(*convexMeshSrc);
 	concaveMesh.ConvertToPolygons();
 
@@ -1293,5 +1296,6 @@ ndMeshEffect* ndMeshEffect::InverseConvexMeshIntersection(const ndMeshEffect* co
 	}
 	mergedOutput->RemoveUnusedVertices(nullptr);
 	return mergedOutput;
+#endif
 }
 

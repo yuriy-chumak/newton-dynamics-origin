@@ -20,7 +20,7 @@
 */
 
 #include "ndFileFormatStdafx.h"
-#include "ndFileFormat.h"
+#include "ndFileFormatSave.h"
 #include "ndFileFormatShapeStaticHeightfield.h"
 
 ndFileFormatShapeStaticHeightfield::ndFileFormatShapeStaticHeightfield()
@@ -33,22 +33,16 @@ ndFileFormatShapeStaticHeightfield::ndFileFormatShapeStaticHeightfield(const cha
 {
 }
 
-ndInt32 ndFileFormatShapeStaticHeightfield::SaveShape(ndFileFormat* const scene, nd::TiXmlElement* const parentNode, const ndShape* const shape)
+ndInt32 ndFileFormatShapeStaticHeightfield::SaveShape(ndFileFormatSave* const scene, nd::TiXmlElement* const parentNode, const ndShape* const shape)
 {
-	nd::TiXmlElement* const classNode = xmlCreateClassNode(parentNode, "ndShape", ndShapeHeightfield::StaticClassName());
+	nd::TiXmlElement* const classNode = xmlCreateClassNode(parentNode, D_SHAPE_CLASS, ndShapeHeightfield::StaticClassName());
 	ndFileFormatShapeStaticMesh::SaveShape(scene, classNode, shape);
 
 	char fileName[1024];
-	ndShapeHeightfield* const staticMesh = (ndShapeHeightfield*)shape;
-	sprintf(fileName, "%s", scene->m_fileName.GetStr());
-	char* const ptr = strrchr(fileName, '.');
-	if (ptr)
-	{
-		ndInt32 nodeId = xmlGetNodeId(classNode);
-		sprintf(ptr, "_%d.bin", nodeId);
-	}
+	sprintf(fileName, "%s_%s_%d.bin", scene->m_assetPath.GetStr(), ndShapeHeightfield::StaticClassName(), xmlGetNodeId(classNode));
 
-	xmlSaveParam(classNode, "assetName", "string", fileName);
+	ndShapeHeightfield* const staticMesh = (ndShapeHeightfield*)shape;
+	xmlSaveParam(classNode, "assetName", fileName);
 	xmlSaveParam(classNode, "minBox", staticMesh->m_minBox);
 	xmlSaveParam(classNode, "maxBox", staticMesh->m_maxBox);
 	xmlSaveParam(classNode, "horizontalScale_x", staticMesh->m_horizontalScale_x);
@@ -66,4 +60,31 @@ ndInt32 ndFileFormatShapeStaticHeightfield::SaveShape(ndFileFormat* const scene,
 	}
 
 	return xmlGetNodeId(classNode);
+}
+
+ndShape* ndFileFormatShapeStaticHeightfield::LoadShape(const nd::TiXmlElement* const node, const ndTree<ndShape*, ndInt32>&)
+{
+	const char* const filename = xmlGetString(node, "assetName");
+	ndVector minBox (xmlGetVector3(node, "minBox"));
+	ndVector maxBox(xmlGetVector3(node, "maxBox"));
+	ndInt32 width = xmlGetInt(node, "width");
+	ndInt32 height = xmlGetInt(node, "height");
+	ndInt32 diagonalMode = xmlGetInt(node, "diagonalMode");
+	ndFloat32 horizontalScale_x = xmlGetFloat(node, "horizontalScale_x");
+	ndFloat32 horizontalScale_z = xmlGetFloat(node, "horizontalScale_z");
+
+	ndShapeHeightfield* const staticMesh = new ndShapeHeightfield(width, height, ndShapeHeightfield::ndGridConstruction (diagonalMode), horizontalScale_x, horizontalScale_z);
+
+	FILE* const file = fopen(filename, "rb");
+	if (file)
+	{
+		size_t ret;
+		ndAssert(staticMesh->m_atributeMap.GetCount() == width * height);
+		ndAssert(staticMesh->m_elevationMap.GetCount() == width * height);
+
+		ret = fread(&staticMesh->m_elevationMap[0], sizeof(ndReal), size_t(staticMesh->m_elevationMap.GetCount()), file);
+		ret = fread(&staticMesh->m_atributeMap[0], sizeof(ndInt8), size_t(staticMesh->m_atributeMap.GetCount()), file);
+		fclose(file);
+	}
+	return staticMesh;
 }

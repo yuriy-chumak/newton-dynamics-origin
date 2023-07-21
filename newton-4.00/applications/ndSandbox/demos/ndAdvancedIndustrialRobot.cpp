@@ -13,8 +13,8 @@
 #include "ndSkyBox.h"
 #include "ndUIEntity.h"
 #include "ndDemoMesh.h"
+#include "ndMeshLoader.h"
 #include "ndDemoCamera.h"
-#include "ndLoadFbxMesh.h"
 #include "ndPhysicsUtils.h"
 #include "ndPhysicsWorld.h"
 #include "ndMakeStaticMap.h"
@@ -40,14 +40,15 @@ namespace ndAdvancedRobot
 		ndFloat32 m_mass;
 		ndFloat32 m_minLimit;
 		ndFloat32 m_maxLimit;
+		ndFloat32 m_maxStrength;
 	};
 
 	static ndDefinition jointsDefinition[] =
 	{
 		{ "base", ndDefinition::m_root, 100.0f, 0.0f, 0.0f},
-		{ "base_rotator", ndDefinition::m_hinge, 50.0f, -1.0e10f, 1.0e10f},
-		{ "arm_0", ndDefinition::m_hinge , 5.0f, -140.0f * ndDegreeToRad, 1.0f * ndDegreeToRad},
-		{ "arm_1", ndDefinition::m_hinge , 5.0f, -30.0f * ndDegreeToRad, 120.0f * ndDegreeToRad},
+		{ "base_rotator", ndDefinition::m_hinge, 50.0f, -1.0e10f, 1.0e10f, 5.0e4f},
+		{ "arm_0", ndDefinition::m_hinge , 5.0f, -140.0f * ndDegreeToRad, 1.0f * ndDegreeToRad, 5.0e4f},
+		{ "arm_1", ndDefinition::m_hinge , 5.0f, -30.0f * ndDegreeToRad, 110.0f * ndDegreeToRad},
 		{ "arm_2", ndDefinition::m_hinge , 5.0f, -1.0e10f, 1.0e10f},
 		{ "arm_3", ndDefinition::m_hinge , 3.0f, -1.0e10f, 1.0e10f},
 		{ "arm_4", ndDefinition::m_hinge , 2.0f, -1.0e10f, 1.0e10f},
@@ -56,6 +57,7 @@ namespace ndAdvancedRobot
 		{ "effector", ndDefinition::m_effector , 0.0f, 0.0f, 0.0f},
 	};
 
+#if 0
 	class ndIndustrialRobot : public ndModel
 	{
 		public:
@@ -128,6 +130,15 @@ namespace ndAdvancedRobot
 							// here we use a ik joints instead of a regular one.
 							ndIkJointHinge* const hinge = new ndIkJointHinge(pivotMatrix, childBody, parentBody);
 							hinge->SetLimits(definition.m_minLimit, definition.m_maxLimit);
+							if ((definition.m_minLimit > -1000.0f) && (definition.m_maxLimit < 1000.0f))
+							{
+								hinge->SetLimitState(true);
+							}
+
+							if (definition.m_maxStrength != 0.0f)
+							{
+								hinge->SetMaxTorque(definition.m_maxStrength);
+							}
 							m_jointArray.PushBack(hinge);
 
 							ndSharedPtr<ndJointBilateralConstraint> hingePtr(hinge);
@@ -142,6 +153,7 @@ namespace ndAdvancedRobot
 							const ndMatrix pivotMatrix(childBody->GetMatrix());
 							ndJointSlider* const slider = new ndJointSlider(pivotMatrix, childBody, parentBody);
 							slider->SetLimits(definition.m_minLimit, definition.m_maxLimit);
+							slider->SetLimitState(true);
 							slider->SetAsSpringDamper(0.01f, 2000.0f, 100.0f);
 			
 							if (!strstr(definition.m_boneName, "Left"))
@@ -169,7 +181,7 @@ namespace ndAdvancedRobot
 			
 							ndFloat32 relaxation = 0.003f;
 							m_effector->EnableRotationAxis(ndIk6DofEffector::m_shortestPath);
-							m_effector->SetLinearSpringDamper(relaxation, 1500.0f, 100.0f);
+							m_effector->SetLinearSpringDamper(relaxation, 1500.0f, 200.0f);
 							m_effector->SetAngularSpringDamper(relaxation, 1500.0f, 100.0f);
 							m_effector->SetMaxForce(10000.0f);
 							m_effector->SetMaxTorque(10000.0f);
@@ -294,7 +306,7 @@ namespace ndAdvancedRobot
 		ndReal m_yaw;
 		ndReal m_roll;
 	};
-	
+
 	class ndRobotUI : public ndUIEntity
 	{
 		public:
@@ -345,48 +357,58 @@ namespace ndAdvancedRobot
 
 		ndIndustrialRobot* m_robot;
 	};
-};
+#endif
+}
 
 using namespace ndAdvancedRobot;
 void ndAdvancedIndustrialRobot(ndDemoEntityManager* const scene)
 {
 	// build a floor
-	BuildFloorBox(scene, ndGetIdentityMatrix());
-	
-	ndVector origin1(0.0f, 0.0f, 0.0f, 1.0f);
-	ndDemoEntity* const robotEntity = ndDemoEntity::LoadFbx("robot.fbx", scene);
-	
-	ndWorld* const world = scene->GetWorld();
-	ndMatrix matrix(ndYawMatrix(-90.0f * ndDegreeToRad));
-	ndIndustrialRobot* const robot = new ndIndustrialRobot(scene, robotEntity, matrix);
-	scene->SetSelectedModel(robot);
+	ndMeshLoader loader;
+	ndBodyKinematic* const floor = BuildFloorBox(scene, ndGetIdentityMatrix());
+	ndSharedPtr<ndDemoEntity> robotEntity(loader.LoadEntity("robot.fbx", scene));
 
-	ndSharedPtr<ndModel> robotPtr(robot);
-	ndSharedPtr<ndJointBilateralConstraint> fixJoint(new ndJointFix6dof(robot->GetRoot()->GetMatrix(), robot->GetRoot(), world->GetSentinelBody()));
-	world->AddModel(robotPtr);
-	world->AddJoint(fixJoint);
-	
-	ndRobotUI* const robotUI = new ndRobotUI(scene, robot);
-	ndSharedPtr<ndUIEntity> robotUIPtr(robotUI);
-	scene->Set2DDisplayRenderFunction(robotUIPtr);
+	ndVector origin1(0.0f, 0.0f, 0.0f, 1.0f);
+	ndAssert(0);
+	//ndWorld* const world = scene->GetWorld();
+	ndMatrix matrix(ndYawMatrix(-90.0f * ndDegreeToRad));
+	//ndIndustrialRobot* const robot = new ndIndustrialRobot(scene, *robotEntity, matrix);
+	//scene->SetSelectedModel(robot);
+	//
+	//ndSharedPtr<ndModel> robotPtr(robot);
+	////ndSharedPtr<ndJointBilateralConstraint> fixJoint(new ndJointFix6dof(robot->GetRoot()->GetMatrix(), robot->GetRoot(), world->GetSentinelBody()));
+	//ndSharedPtr<ndJointBilateralConstraint> fixJoint(new ndJointFix6dof(robot->GetRoot()->GetMatrix(), robot->GetRoot(), floor));
+	//world->AddModel(robotPtr);
+	//world->AddJoint(fixJoint);
+	//
+	//ndRobotUI* const robotUI = new ndRobotUI(scene, robot);
+	//ndSharedPtr<ndUIEntity> robotUIPtr(robotUI);
+	//scene->Set2DDisplayRenderFunction(robotUIPtr);
 	
 	//matrix.m_posit.m_x += 2.0f;
 	//matrix.m_posit.m_z -= 2.0f;
 	//ndSharedPtr<ndUIEntity> robotUIPtr1(new ndIndustrialRobot(scene, robotEntity, matrix));
 	//world->AddModel(robotUIPtr1);
+	//delete robotEntity;
 	
-	delete robotEntity;
+	//ndMatrix location(matrix * ndYawMatrix(45.0f * ndDegreeToRad));
+	//location.m_posit.m_z += 1.75f;
+	//location.m_posit.m_x += 1.75f;
+	//AddBox(scene, location, 10.0f, 2.0f, 0.5f, 2.0f);
 	
-	ndMatrix location(matrix);
-	location.m_posit.m_x += 1.5f;
-	location.m_posit.m_z += 1.5f;
-	AddBox(scene, location, 2.0f, 0.3f, 0.4f, 0.7f);
-	AddBox(scene, location, 1.0f, 0.3f, 0.4f, 0.7f);
-	
-	location.m_posit.m_x += 0.6f;
-	location.m_posit.m_z += 0.2f;
-	AddBox(scene, location, 8.0f, 0.3f, 0.4f, 0.7f);
-	AddBox(scene, location, 4.0f, 0.3f, 0.4f, 0.7f);
+	//ndMatrix location(matrix * ndYawMatrix(0.0f * ndDegreeToRad));
+	//location.m_posit.m_x += 1.5f;
+	//location.m_posit.m_z += 1.5f;
+	//AddBox(scene, location, 2.0f, 0.3f, 0.4f, 0.7f);
+	//location = ndYawMatrix(60.0f * ndDegreeToRad) * location;
+	//AddBox(scene, location, 1.0f, 0.3f, 0.4f, 0.7f);
+	//
+	//location = ndYawMatrix(60.0f * ndDegreeToRad) * location;
+	//location.m_posit.m_x += 1.0f;
+	//location.m_posit.m_z += 0.5f;
+	//AddBox(scene, location, 8.0f, 0.3f, 0.4f, 0.7f);
+	//location = ndYawMatrix(45.0f * ndDegreeToRad) * location;
+	//AddBox(scene, location, 4.0f, 0.3f, 0.4f, 0.7f);
 	
 	matrix.m_posit.m_x -= 6.0f;
 	matrix.m_posit.m_y += 2.0f;

@@ -13,6 +13,14 @@
 #include "ndNewtonStdafx.h"
 #include "ndJointDryRollingFriction.h"
 
+ndJointDryRollingFriction::ndJointDryRollingFriction()
+	:ndJointBilateralConstraint()
+	,m_coefficient(ndFloat32(0.5f))
+	,m_contactTrail(ndFloat32(0.1f))
+{
+	m_maxDof = 1;
+}
+
 ndJointDryRollingFriction::ndJointDryRollingFriction(ndBodyKinematic* const body0, ndBodyKinematic* const body1, ndFloat32 coefficient)
 	:ndJointBilateralConstraint(1, body0, body1, ndGetIdentityMatrix())
 	,m_coefficient(ndClamp (coefficient, ndFloat32(0.0f), ndFloat32 (1.0f)))
@@ -27,6 +35,27 @@ ndJointDryRollingFriction::ndJointDryRollingFriction(ndBodyKinematic* const body
 ndJointDryRollingFriction::~ndJointDryRollingFriction()
 {
 }
+
+void ndJointDryRollingFriction::SetContactTrail(ndFloat32 trail)
+{
+	m_contactTrail = ndClamp(trail, ndFloat32(0.1f), ndFloat32(1.0f));
+}
+
+void ndJointDryRollingFriction::SetFrictionCoefficient(ndFloat32 friction)
+{
+	m_coefficient = ndClamp(friction, ndFloat32(0.0f), ndFloat32(1.0f));
+}
+
+ndFloat32 ndJointDryRollingFriction::GetContactTrail() const
+{
+	return m_contactTrail;
+}
+
+ndFloat32 ndJointDryRollingFriction::GetFrictionCoefficient() const
+{
+	return m_coefficient;
+}
+
 
 // rolling friction works as follow: the idealization of the contact of a spherical object 
 // with a another surface is a point that pass by the center of the sphere.

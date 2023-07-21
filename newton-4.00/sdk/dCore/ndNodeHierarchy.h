@@ -33,8 +33,8 @@ class ndNodeHierarchy: public ndContainersFreeListAlloc<T>
 	T* GetNext () const;
 	T* GetRoot () const;
 
-	T* IteratorFirst() const;
-	T* IteratorNext() const;
+	T* GetFirstIterator() const;
+	T* GetNextIterator() const;
 
 	protected:
 	ndNodeHierarchy (const ndNodeHierarchy<T>& clone);
@@ -83,23 +83,34 @@ ndNodeHierarchy<T>::~ndNodeHierarchy ()
 	}
 	if (m_parent)
 	{
-		ndAssert(!m_prev);
 		if (m_next)
 		{
-			m_next->m_prev = nullptr;
+			m_next->m_prev = m_prev;
 		}
-		m_parent->m_firstChild = m_next;
-		if (!m_next)
+		else
 		{
-			m_parent->m_lastChild = nullptr;
+			m_parent->m_lastChild = m_prev;
+		}
+		if (m_prev)
+		{
+			m_prev->m_next = m_next;
+		}
+		else
+		{
+			m_parent->m_firstChild = m_next;
 		}
 	} 
 	else if (m_next)
 	{
-		m_next->m_prev = nullptr;
+		m_next->m_prev = m_prev;
+	}
+	else if (m_prev)
+	{
+		m_prev->m_next = m_next;
 	}
 	m_next = nullptr;
-	ndAssert(!m_prev);
+	m_prev = nullptr;
+
 	ndAssert(!m_lastChild);
 	ndAssert(!m_firstChild);
 }
@@ -176,7 +187,7 @@ T* ndNodeHierarchy<T>::GetRoot () const
 }
 
 template<class T>
-T* ndNodeHierarchy<T>::IteratorFirst() const
+T* ndNodeHierarchy<T>::GetFirstIterator() const
 {
 	const ndNodeHierarchy<T>* ptr = this;
 	for (; ptr->m_firstChild; ptr = ptr->m_firstChild);
@@ -184,11 +195,11 @@ T* ndNodeHierarchy<T>::IteratorFirst() const
 }
 
 template<class T>
-T* ndNodeHierarchy<T>::IteratorNext() const
+T* ndNodeHierarchy<T>::GetNextIterator() const
 {
 	if (m_next)
 	{
-		return m_next->IteratorFirst();
+		return m_next->GetFirstIterator();
 	}
 
 	const ndNodeHierarchy<T>* x = this;

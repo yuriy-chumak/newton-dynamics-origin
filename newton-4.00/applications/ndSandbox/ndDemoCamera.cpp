@@ -21,6 +21,7 @@ ndDemoCamera::ndDemoCamera()
 	:ndDemoEntity (ndGetIdentityMatrix(), nullptr) 
 	,m_viewMatrix(ndGetIdentityMatrix())
 	,m_projectionMatrix(ndGetIdentityMatrix())
+	,m_invProjectionMatrix(ndGetIdentityMatrix())
 	,m_fov(D_CAMERA_ANGLE * ndDegreeToRad)
 	,m_backPlane(2000.0f)
 	,m_frontPlane (0.01f)
@@ -100,7 +101,7 @@ ndMatrix ndDemoCamera::CreateLookAtMatrix(const ndVector& eyepoint, const ndVect
 	result[1] = YAxis;
 	result[2] = zAxis;
 	result[3] = ndVector::m_wOne;
-	result = result.Transpose();
+	result = result.Transpose3x3();
 
 	ndVector negEye (eyepoint);
 	negEye = negEye.Scale(-1.0f);
@@ -126,6 +127,7 @@ void ndDemoCamera::SetViewMatrix(ndInt32 width, ndInt32 height)
 
 	// calculate projection matrix
 	m_projectionMatrix = CreatePerspectiveMatrix(m_fov, GLfloat(width) / GLfloat(height), m_frontPlane, m_backPlane);
+	m_invProjectionMatrix = m_projectionMatrix.Inverse4x4();
 
 	// set the model view matrix 
 	const ndVector pointOfInterest(m_matrix.m_posit + m_matrix.m_front);
@@ -134,6 +136,7 @@ void ndDemoCamera::SetViewMatrix(ndInt32 width, ndInt32 height)
 
 ndVector ndDemoCamera::ScreenToWorld (const ndVector& screenPoint) const
 {
+#if 0
 	GLdouble winX = screenPoint.m_x; //Store the x cord;
 	GLdouble winY = screenPoint.m_y; //Store the y cord
 	GLdouble winZ = screenPoint.m_z; //Store the Z cord
@@ -159,6 +162,24 @@ ndVector ndDemoCamera::ScreenToWorld (const ndVector& screenPoint) const
 
 	gluUnProject (winX, winY, winZ, modelViewMatrix, projectionViewMatrix, (GLint*)&m_viewport, &objx, &objy, &objz);
 	return ndVector (ndFloat32(objx), ndFloat32(objy), ndFloat32(objz), ndFloat32 (1.0f));
+
+#else
+	ndVector sp(screenPoint);
+	sp.m_y = (ndFloat32)m_viewport[3] - sp.m_y;
+
+	sp.m_x = ndFloat32(2.0f) * (sp.m_x - (ndFloat32)m_viewport[0]) / (ndFloat32)m_viewport[2] - ndFloat32(1.0f);
+	sp.m_y = ndFloat32(2.0f) * (sp.m_y - (ndFloat32)m_viewport[1]) / (ndFloat32)m_viewport[3] - ndFloat32(1.0f),
+	sp.m_z = ndFloat32(2.0f) * sp.m_z  - ndFloat32(1.0f);
+	sp.m_w = ndFloat32(1.0f);
+
+	//sp = viewPoint * ViewMatrx * projeMatrix;
+	ndVector viewPoint(m_viewMatrix.OrthoInverse().TransformVector1x4(m_invProjectionMatrix.TransformVector1x4(sp)));
+	if (viewPoint.m_w != 0.0)
+	{
+		viewPoint = viewPoint.Scale(1.0f / viewPoint.m_w);
+	}
+	return viewPoint;
+#endif
 }
 
 //ndVector ndDemoCamera::WorldToScreen (const ndVector& worldPoint) const
@@ -212,7 +233,7 @@ ndAssert (0);
 
 void ndDemoCamera::SetMatrix (const ndQuaternion& rotation, const ndVector& position)
 {
-	ndMatrix matrix (rotation, position);
+	ndMatrix matrix (ndCalculateMatrix(rotation, position));
 	m_cameraPitch = ndAsin (matrix.m_front.m_y);
 	m_cameraYaw = ndAtan2 (-matrix.m_front.m_z, matrix.m_front.m_x);
 

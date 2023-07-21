@@ -13,18 +13,15 @@
 #include "ndSkyBox.h"
 #include "ndDemoMesh.h"
 #include "ndUIEntity.h"
+#include "ndMeshLoader.h"
 #include "ndDemoCamera.h"
-#include "ndLoadFbxMesh.h"
 #include "ndPhysicsUtils.h"
 #include "ndPhysicsWorld.h"
 #include "ndMakeStaticMap.h"
-#include "ndAnimationPose.h"
 #include "ndContactCallback.h"
 #include "ndDemoEntityNotify.h"
 #include "ndDemoEntityManager.h"
 #include "ndDemoInstanceEntity.h"
-#include "ndAnimationSequenceBase.h"
-#include "ndAnimationSequencePlayer.h"
 
 namespace ndQuadruped_3
 {
@@ -94,8 +91,8 @@ namespace ndQuadruped_3
 			const ndShapeMaterial& material0 = instanceShape0.GetMaterial();
 			const ndShapeMaterial& material1 = instanceShape1.GetMaterial();
 
-			ndUnsigned64 pointer0 = material0.m_userParam[ndContactCallback::m_modelPointer].m_intData;
-			ndUnsigned64 pointer1 = material1.m_userParam[ndContactCallback::m_modelPointer].m_intData;
+			ndUnsigned64 pointer0 = material0.m_userParam[ndDemoContactCallback::m_modelPointer].m_intData;
+			ndUnsigned64 pointer1 = material1.m_userParam[ndDemoContactCallback::m_modelPointer].m_intData;
 			if (pointer0 == pointer1)
 			{
 				// here we know the part are from the same model.
@@ -106,7 +103,8 @@ namespace ndQuadruped_3
 		}
 	};
 
-	class ndWalkSequence : public ndAnimationSequenceBase
+	//class ndWalkSequence : public ndAnimationSequenceBase
+	class ndWalkSequence : public ndAnimationSequence
 	{
 		public:
 		class ndSegment
@@ -148,7 +146,7 @@ namespace ndQuadruped_3
 		};
 
 		ndWalkSequence(ndFloat32 midParam)
-			:ndAnimationSequenceBase()
+			:ndAnimationSequence()
 			,m_segment0()
 			,m_segment1()
 			,m_xBias(0.11f)
@@ -375,7 +373,8 @@ namespace ndQuadruped_3
 			m_param_xxxx = ndParamMapper(0.0, 0.75f);
 			
 			m_output.SetCount(4);
-			m_walk = new ndAnimationSequencePlayer(&m_walkCycle);
+			ndAssert(0);
+			//m_walk = new ndAnimationSequencePlayer(&m_walkCycle);
 			m_animBlendTree = m_walk;
 		}
 
@@ -386,6 +385,9 @@ namespace ndQuadruped_3
 				delete m_animBlendTree;
 			}
 		}
+
+		virtual void OnAddToWorld() { ndAssert(0); }
+		virtual void OnRemoveFromToWorld() { ndAssert(0); }
 
 		void NormalizeMassDistribution(ndFloat32 mass) const
 		{
@@ -454,8 +456,8 @@ namespace ndQuadruped_3
 			body->SetNotifyCallback(new ndDemoEntityNotify(scene, entityPart, parentBone));
 
 			ndShapeInstance& instanceShape = body->GetCollisionShape();
-			instanceShape.m_shapeMaterial.m_userId = ndApplicationMaterial::m_modelPart;
-			instanceShape.m_shapeMaterial.m_userParam[ndContactCallback::m_modelPointer].m_intData = ndUnsigned64(this);
+			instanceShape.m_shapeMaterial.m_userId = ndDemoContactCallback::m_modelPart;
+			instanceShape.m_shapeMaterial.m_userParam[ndDemoContactCallback::m_modelPointer].m_ptrData = this;
 
 			// add body to the world
 			ndSharedPtr<ndBody> bodyPtr(body);
@@ -575,18 +577,19 @@ namespace ndQuadruped_3
 			ndFloat32 animSpeed = m_param_xxxx.Interpolate(m_param_x0);
 			m_timer = ndMod(m_timer + timestep * animSpeed, ndFloat32(1.0f));
 
-			m_walk->SetParam(1.0f - m_timer);
-			m_animBlendTree->Evaluate(m_output);
-			for (ndInt32 i = 0; i < m_effectorsInfo.GetCount(); i++)
-			{
-				ndEffectorInfo& info = m_effectorsInfo[i];
-				const ndAnimKeyframe& keyFrame = m_output[i];
-				ndVector posit(info.m_basePosition);
-				posit.m_x += keyFrame.m_posit.m_x;
-				posit.m_y += keyFrame.m_posit.m_y;
-				posit.m_z += keyFrame.m_posit.m_z;
-				info.m_effector->SetLocalTargetPosition(posit);
-			}
+			ndAssert(0);
+			//m_walk->SetParam(1.0f - m_timer);
+			//m_animBlendTree->Evaluate(m_output);
+			//for (ndInt32 i = 0; i < m_effectorsInfo.GetCount(); i++)
+			//{
+			//	ndEffectorInfo& info = m_effectorsInfo[i];
+			//	const ndAnimKeyframe& keyFrame = m_output[i];
+			//	ndVector posit(info.m_basePosition);
+			//	posit.m_x += keyFrame.m_posit.m_x;
+			//	posit.m_y += keyFrame.m_posit.m_y;
+			//	posit.m_z += keyFrame.m_posit.m_z;
+			//	info.m_effector->SetLocalTargetPosition(posit);
+			//}
 
 			ndSkeletonContainer* const skeleton = m_bodyArray[0]->GetSkeleton();
 			ndAssert(skeleton);
@@ -620,7 +623,7 @@ namespace ndQuadruped_3
 		ndReal m_param_x0;
 		ndParamMapper m_param_xxxx;
 	};
-	
+
 	class ndModelUI : public ndUIEntity
 	{
 		public:
@@ -659,7 +662,7 @@ namespace ndQuadruped_3
 
 		ndQuadrupedModel* m_model;
 	};
-};
+}
 
 using namespace ndQuadruped_3;
 void ndQuadrupedTest_3(ndDemoEntityManager* const scene)
@@ -669,7 +672,8 @@ void ndQuadrupedTest_3(ndDemoEntityManager* const scene)
 	//BuildFloorBox(scene, ndGetIdentityMatrix());
 	
 	ndVector origin1(0.0f, 0.0f, 0.0f, 1.0f);
-	ndSharedPtr<ndDemoEntity> modelMesh (ndDemoEntity::LoadFbx("spotBoston.fbx", scene));
+	ndMeshLoader loader;
+	ndSharedPtr<ndDemoEntity> modelMesh (loader.LoadEntity("spotBoston.fbx", scene));
 	
 	ndWorld* const world = scene->GetWorld();
 	ndMatrix matrix(ndYawMatrix(-0.0f * ndDegreeToRad));
@@ -683,8 +687,8 @@ void ndQuadrupedTest_3(ndDemoEntityManager* const scene)
 	material.m_dynamicFriction1 = 0.9f;
 	
 	ndContactCallback* const callback = (ndContactCallback*)scene->GetWorld()->GetContactNotify();
-	callback->RegisterMaterial(material, ndApplicationMaterial::m_modelPart, ndApplicationMaterial::m_default);
-	callback->RegisterMaterial(material, ndApplicationMaterial::m_modelPart, ndApplicationMaterial::m_modelPart);
+	callback->RegisterMaterial(material, ndDemoContactCallback::m_modelPart, ndDemoContactCallback::m_default);
+	callback->RegisterMaterial(material, ndDemoContactCallback::m_modelPart, ndDemoContactCallback::m_modelPart);
 	
 	ndQuadrupedModel* const robot0 = new ndQuadrupedModel(scene, *modelMesh, matrix);
 	scene->SetSelectedModel(robot0);

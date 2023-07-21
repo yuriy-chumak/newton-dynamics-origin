@@ -12,7 +12,6 @@
 #include "ndSandboxStdafx.h"
 #include "ndDemoMesh.h"
 #include "ndDemoEntity.h"
-#include "ndLoadFbxMesh.h"
 #include "ndDebugDisplay.h"
 #include "ndPhysicsWorld.h"
 #include "ndMakeStaticMap.h"
@@ -33,16 +32,28 @@ class ndRegularProceduralGrid : public ndShapeStaticProceduralMesh
 		{
 		}
 
-		virtual ndInt32 SaveShape(ndFileFormat* const scene, nd::TiXmlElement* const parentNode, const ndShape* const shape)
+		virtual ndInt32 SaveShape(ndFileFormatSave* const scene, nd::TiXmlElement* const parentNode, const ndShape* const shape)
 		{
 			nd::TiXmlElement* const classNode = xmlCreateClassNode(parentNode, "ndRegularProceduralGrid", ndRegularProceduralGrid::StaticClassName());
 			ndFileFormatShapeStaticProceduralMesh::SaveShape(scene, classNode, shape);
 
 			ndRegularProceduralGrid* const grid = (ndRegularProceduralGrid*)shape;
+			xmlSaveParam(classNode, "boxSize", grid->GetObbSize());
 			xmlSaveParam(classNode, "planeNormal", grid->m_planeEquation);
 			xmlSaveParam(classNode, "planeDistance", grid->m_planeEquation.m_w);
 			xmlSaveParam(classNode, "gridSize", grid->m_gridSize);
 			return xmlGetNodeId(classNode);
+		}
+
+		ndShape* LoadShape(const nd::TiXmlElement* const node, const ndTree<ndShape*, ndInt32>&)
+		{
+			ndVector boxSize (xmlGetVector3(node, "boxSize") * ndVector::m_two);
+			ndVector planeNormal (xmlGetVector3(node, "planeNormal"));
+			ndFloat32 planeDist = xmlGetFloat(node, "planeDistance");
+			ndFloat32 gridSize = xmlGetFloat(node, "gridSize");
+
+			planeNormal.m_w = planeDist;
+			return new ndRegularProceduralGrid(gridSize, boxSize.m_x, boxSize.m_y, boxSize.m_z, planeNormal);
 		}
 	};
 
@@ -81,7 +92,7 @@ class ndRegularProceduralGrid : public ndShapeStaticProceduralMesh
 				ndVector maxP;
 				ndMatrix matrix(body0->GetMatrix());
 				//collision.CalculateAabb(matrix.Inverse(), minP, maxP);
-				collision.CalculateAabb(matrix * myMatrix.Inverse(), minP, maxP);
+				collision.CalculateAabb(matrix * myMatrix.OrthoInverse(), minP, maxP);
 
 				vertex.SetCount(0);
 				faceList.SetCount(0);
@@ -166,8 +177,8 @@ class ndRegularProceduralGrid : public ndShapeStaticProceduralMesh
 
 	virtual ndUnsigned64 GetHash(ndUnsigned64 hash) const
 	{
-		hash = dCRC64(&m_planeEquation[0], sizeof(ndVector), hash);
-		hash = dCRC64(&m_gridSize, sizeof(ndFloat32), hash);
+		hash = ndCRC64(&m_planeEquation[0], sizeof(ndVector), hash);
+		hash = ndCRC64(&m_gridSize, sizeof(ndFloat32), hash);
 		return hash;
 	}
 

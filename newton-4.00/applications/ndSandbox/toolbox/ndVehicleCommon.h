@@ -9,12 +9,11 @@
 * freely
 */
 
-#ifndef __D_VEHICLE_COMMON_UTIL__
-#define __D_VEHICLE_COMMON_UTIL__
+#ifndef __ND_VEHICLE_COMMON_UTIL__
+#define __ND_VEHICLE_COMMON_UTIL__
 
 #include "ndSandboxStdafx.h"
 #include "ndDemoEntity.h"
-#include "ndContactCallback.h"
 #include "ndDemoEntityNotify.h"
 #include "ndGameControlerInputs.h"
 
@@ -238,6 +237,9 @@ class ndVehicleSelector : public ndModel
 	public:
 	D_CLASS_REFLECTION(ndVehicleSelector, ndModel)
 	ndVehicleSelector();
+
+	virtual void OnAddToWorld() {}
+	virtual void OnRemoveFromToWorld() {}
 
 	void Update(ndWorld* const, ndFloat32){}
 	void PostUpdate(ndWorld* const world, ndFloat32);

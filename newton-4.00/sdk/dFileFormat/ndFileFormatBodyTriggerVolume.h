@@ -23,15 +23,15 @@
 #define _ND_FILE_FORMAT_TRIGGER_VOLUME_H__
 
 #include "ndFileFormatStdafx.h"
-#include "ndFileFormatKinematicBodyBase.h"
+#include "ndFileFormatBodyKinematicBase.h"
 
-class ndFileFormatBodyTriggerVolume : public ndFileFormatKinematicBodyBase
+class ndFileFormatBodyTriggerVolume : public ndFileFormatBodyKinematicBase
 {
 	public: 
 	ndFileFormatBodyTriggerVolume();
 	ndFileFormatBodyTriggerVolume(const char* const className);
 
-	virtual void SaveBody(ndFileFormat* const scene, nd::TiXmlElement* const parentNode, const ndBody* const body);
+	virtual void SaveBody(ndFileFormatSave* const scene, nd::TiXmlElement* const parentNode, const ndBody* const body);
 };
 
 #endif 

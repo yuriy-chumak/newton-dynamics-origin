@@ -32,9 +32,10 @@ ndFileFormatWorld::ndFileFormatWorld(const char* const className)
 {
 }
 
-void ndFileFormatWorld::SaveWorld(ndFileFormat* const scene, nd::TiXmlElement* const parentNode, const ndWorld* const world)
+void ndFileFormatWorld::SaveWorld(ndFileFormatSave* const, nd::TiXmlElement* const parentNode, const ndWorld* const world)
 {
-	nd::TiXmlElement* const node = xmlCreateClassNode(parentNode, "ndWorld", ndWorld::StaticClassName());
-	ndAssert(0);
-	//return xmlGetNodeId(node);
+	nd::TiXmlElement* const classNode = xmlCreateClassNode(parentNode, D_WORD_CLASS, ndWorld::StaticClassName());
+
+	xmlSaveParam(classNode, "subSteps", world->GetSubSteps());
+	xmlSaveParam(classNode, "iterations", world->GetSolverIterations());
 }

@@ -65,29 +65,23 @@ ndBrainVector::~ndBrainVector()
 {
 }
 
-void ndBrainVector::InitGaussianWeights(ndReal mean, ndReal variance)
+void ndBrainVector::InitGaussianWeights(ndReal variance)
 {
 	for (ndInt32 i = GetCount() - 1; i >= 0 ; --i)
 	{
-		(*this)[i] = ndReal(ndGaussianRandom(mean, variance));
+		(*this)[i] = ndReal(ndGaussianRandom(ndReal (0.0f), variance));
 	}
 }
 
 void ndBrainVector::Set(ndReal value)
 {
-	for (ndInt32 i = GetCount() - 1; i >= 0; --i)
-	{
-		(*this)[i] = value;
-	}
+	ndMemSet(&(*this)[0], value, GetCount());
 }
 
 void ndBrainVector::Set(const ndBrainVector& data)
 {
 	ndAssert(GetCount() == data.GetCount());
-	for (ndInt32 i = GetCount() - 1; i >= 0; --i)
-	{
-		(*this)[i] = data[i];
-	}
+	ndMemCpy(&(*this)[0], &data[0], GetCount());
 }
 
 ndInt32 ndBrainVector::GetMaxIndex() const
@@ -106,55 +100,68 @@ ndInt32 ndBrainVector::GetMaxIndex() const
 	return index;
 }
 
-void ndBrainVector::ScaleSet(const ndBrainVector& a, ndReal scale)
+void ndBrainVector::Scale(ndReal scale)
 {
-	ndAssert(GetCount() == a.GetCount());
-	ndScaleSet(GetCount(), &(*this)[0], &a[0], scale);
+	ndScale(GetCount(), &(*this)[0], scale);
+}
+
+void ndBrainVector::Clamp(ndReal min, ndReal max)
+{
+	for (ndInt32 i = GetCount() - 1; i >= 0; --i)
+	{
+		ndReal val = (*this)[i];
+		ndAssert(val >= ndReal(-1.0e6f));
+		ndAssert(val <= ndReal(1.0e6f));
+		(*this)[i] = ndClamp(val, min, max);
+	}
 }
 
 void ndBrainVector::ScaleAdd(const ndBrainVector& a, ndReal b)
 {
 	ndAssert(GetCount() == a.GetCount());
-	ndScaleAdd(GetCount(), &(*this)[0], &(*this)[0], &a[0], b);
+	ndScaleAdd(GetCount(), &(*this)[0], &a[0], b);
 }
 
-void ndBrainVector::Add(const ndBrainVector& a, const ndBrainVector& b)
+void ndBrainVector::Add(const ndBrainVector& a)
 {
 	ndAssert(GetCount() == a.GetCount());
-	ndAssert(GetCount() == b.GetCount());
-	ndAdd(GetCount(), &(*this)[0], &a[0], &b[0]);
+	ndAdd(GetCount(), &(*this)[0], &a[0]);
 }
 
-void ndBrainVector::Sub(const ndBrainVector& a, const ndBrainVector& b)
+void ndBrainVector::Sub(const ndBrainVector& a)
 {
 	ndAssert(GetCount() == a.GetCount());
-	ndAssert(GetCount() == b.GetCount());
-	ndSub(GetCount(), &(*this)[0], &a[0], &b[0]);
+	ndSub(GetCount(), &(*this)[0], &a[0]);
 }
 
-void ndBrainVector::Mul(const ndBrainVector& a, const ndBrainVector& b)
+void ndBrainVector::Mul(const ndBrainVector& a)
 {
 	ndAssert(GetCount() == a.GetCount());
-	ndAssert(GetCount() == b.GetCount());
-	ndMul(GetCount(), &(*this)[0], &a[0], &b[0]);
+	ndMul(GetCount(), &(*this)[0], &a[0]);
 }
 
 void ndBrainVector::MulAdd(const ndBrainVector& a, const ndBrainVector& b)
 {
 	ndAssert(GetCount() == a.GetCount());
 	ndAssert(GetCount() == b.GetCount());
-	ndMulAdd(GetCount(), &(*this)[0], &(*this)[0], &a[0], &b[0]);
+	ndMulAdd(GetCount(), &(*this)[0], &a[0], &b[0]);
 }
 
 void ndBrainVector::MulSub(const ndBrainVector& a, const ndBrainVector& b)
 {
 	ndAssert(GetCount() == a.GetCount());
 	ndAssert(GetCount() == b.GetCount());
-	ndMulSub(GetCount(), &(*this)[0], &(*this)[0], &a[0], &b[0]);
+	ndMulSub(GetCount(), &(*this)[0], &a[0], &b[0]);
 }
 
 ndReal ndBrainVector::Dot(const ndBrainVector& a) const
 {
 	ndAssert(GetCount() == a.GetCount());
 	return ndDotProduct(GetCount(), &(*this)[0], &a[0]);
+}
+
+void ndBrainVector::Blend(const ndBrainVector& target, ndReal blend)
+{
+	Scale(ndReal(1.0f) - blend);
+	ScaleAdd(target, blend);
 }

@@ -12,8 +12,8 @@
 #include "ndSandboxStdafx.h"
 #include "ndSkyBox.h"
 #include "ndDemoMesh.h"
+#include "ndMeshLoader.h"
 #include "ndDemoCamera.h"
-#include "ndLoadFbxMesh.h"
 #include "ndPhysicsUtils.h"
 #include "ndPhysicsWorld.h"
 #include "ndCompoundScene.h"
@@ -22,6 +22,7 @@
 #include "ndBasicPlayerCapsule.h"
 #include "ndHeightFieldPrimitive.h"
 
+#if 1
 void ndStaticMeshCollisionDemo (ndDemoEntityManager* const scene)
 {
 	ndMatrix heighfieldLocation (ndGetIdentityMatrix());
@@ -44,11 +45,12 @@ void ndStaticMeshCollisionDemo (ndDemoEntityManager* const scene)
 	location.m_posit.m_y += 2.0f;
 
 	ndMatrix localAxis(ndGetIdentityMatrix());
-	localAxis[0] = ndVector(0.0, 1.0f, 0.0f, 0.0f);
-	localAxis[1] = ndVector(1.0, 0.0f, 0.0f, 0.0f);
+	localAxis[0] = ndVector(0.0f, 1.0f, 0.0f, 0.0f);
+	localAxis[1] = ndVector(1.0f, 0.0f, 0.0f, 0.0f);
 	localAxis[2] = localAxis[0].CrossProduct(localAxis[1]);
 
-	ndDemoEntity* const man = ndDemoEntity::LoadFbx("walker.fbx", scene);
+	ndMeshLoader loader;
+	ndSharedPtr<ndDemoEntity> man(loader.LoadEntity("walker.fbx", scene));
 
 	//ndFloat32 height = 1.9f;
 	//ndFloat32 radio = 0.5f;
@@ -86,9 +88,232 @@ void ndStaticMeshCollisionDemo (ndDemoEntityManager* const scene)
 
 	//AddCapsulesStacks(scene, PlaceMatrix(45.0f, 0.0f, 0.0f), 10.0f, 0.5f, 0.5f, 1.0f, 5, 8, 7);
 
-	delete man;
 	ndQuaternion rot(ndYawMatrix(30.0f * ndDegreeToRad));
 	//ndVector origin(-5.0f, 4.0f, 0.0f, 1.0f);
 	ndVector origin(-3.0f, 0.0f, 2.0f, 1.0f);
 	scene->SetCameraMatrix(rot, origin);
+
+	//ndFileFormatSave xxxxSave;
+	//xxxxSave.SaveWorld(scene->GetWorld(), "xxxx.nd");
+	//ndFileFormatLoad xxxxLoad;
+	//xxxxLoad.Load("xxxx.nd");
+	//// offset bodies positions for calibration;
+	//const ndList<ndSharedPtr<ndBody>>& bodyList = xxxxLoad.GetBodyList();
+	//for (ndList<ndSharedPtr<ndBody>>::ndNode* node = bodyList.GetFirst(); node; node = node->GetNext())
+	//{
+	//	ndSharedPtr<ndBody>& body = node->GetInfo();
+	//	ndMatrix bodyMatrix(body->GetMatrix());
+	//	bodyMatrix.m_posit.m_x += 4.0f;
+	//	body->SetMatrix(bodyMatrix);
+	//}
+	//xxxxLoad.AddToWorld(scene->GetWorld());
 }
+#else
+
+#if 1
+
+#include "ndDemoDebugMesh.h"
+class CConvexCaster : public ndModel
+{
+	public:
+	class CConvexCastCallBack : public ndConvexCastNotify
+	{
+		public:
+		CConvexCastCallBack()
+			: ndConvexCastNotify()
+		{}
+
+		virtual ndUnsigned32 OnRayPrecastAction(const ndBody* const body, const ndShapeInstance* const) override
+		{
+			// filter teh floor
+			ndUnsigned32 ret = ndUnsigned32(body->GetInvMass() ? 1 : 0);
+			return ret;
+		}
+
+		virtual ndFloat32 OnRayCastAction(const ndContactPoint&, ndFloat32) override
+		{
+			return 0;
+		}
+	};
+
+	CConvexCaster(ndDemoEntityManager* const pScene, ndBodyKinematic* const pParentBody)
+		: ndModel()
+		, m_CastShape(new ndShapeSphere(5.0))
+		, m_pParentBody(pParentBody)
+		, m_pKinJoint(nullptr)
+		, m_pScene(pScene)
+	{
+	}
+
+	virtual void OnAddToWorld() override {}
+	virtual void OnRemoveFromToWorld() override {}
+
+	virtual void Update(ndWorld* const, ndFloat32) override
+	{
+		CConvexCastCallBack castCallback;
+
+		//if (m_world->ConvexCast(castCallback, m_CastShape, ndGetIdentityMatrix(), ndVector(0.0, 0.001, 0.0, 1.0)))
+		//if (m_world->ConvexCast(castCallback, m_CastShape, ndGetIdentityMatrix(), ndVector(0.0, 0.0, 0.001, 1.0)))
+		if (m_world->ConvexCast(castCallback, m_CastShape, ndGetIdentityMatrix(), ndVector(0.001, 0.0, 0.0, 1.0)))
+		{
+			if (castCallback.m_contacts.GetCount() > 0)
+			{
+				ndBodyKinematic* const pHitBody = (ndBodyKinematic*)castCallback.m_contacts[0].m_body1;
+				ndAssert(pHitBody);
+				auto pUserData = static_cast<ndDemoEntity*>(pHitBody->GetNotifyCallback()->GetUserData());
+				ndAssert(pUserData->GetName() == "My Collision Object");
+				if (!m_pKinJoint)
+				{
+					m_pKinJoint = new ndJointKinematicController(pHitBody, m_pParentBody, castCallback.m_contacts[0].m_point);
+					m_pKinJoint->SetMaxAngularFriction(1000);
+					m_pKinJoint->SetMaxLinearFriction(1000);
+					ndSharedPtr<ndJointBilateralConstraint> jointPtr(m_pKinJoint);
+					m_world->AddJoint(jointPtr);
+				}
+			}
+		}
+	}
+
+	virtual void Debug(ndConstraintDebugCallback&) const override
+	{
+		ndWireFrameDebugMesh sharedEdgeMesh = ndWireFrameDebugMesh(m_pScene->GetShaderCache(), &m_CastShape);
+		const ndVector color(0.5f, 0.5f, 0.5f, 1.0f);
+		sharedEdgeMesh.SetColor(color);
+		sharedEdgeMesh.Render(m_pScene, ndGetIdentityMatrix());
+	}
+
+private:
+	ndShapeInstance m_CastShape;
+	ndBodyKinematic* m_pParentBody;
+	ndJointKinematicController* m_pKinJoint;
+	ndDemoEntityManager* m_pScene;
+};
+
+static ndBodyKinematic* BuildHeightField(ndDemoEntityManager* const scene)
+{
+	ndInt32 iDim = 64;
+	ndFloat32 dSize = 128, dMaxHeight = 0.0;
+	std::vector<ndFloat32> aData; aData.resize(size_t(iDim * iDim));
+	ndFloat32 fHorizontalScale = ndFloat32(128.0) / ndFloat32(iDim - 1);
+	ndShapeInstance shape(new ndShapeHeightfield(iDim, iDim, ndShapeHeightfield::m_normalDiagonals, fHorizontalScale, fHorizontalScale));
+	ndMatrix mLocal(ndGetIdentityMatrix());
+	mLocal.m_posit = ndVector(-(dSize * 0.5), 0.0, -(dSize * 0.5), 1.0);
+	shape.SetLocalMatrix(mLocal);
+	auto pShapeHeightField = shape.GetShape()->GetAsShapeHeightfield();
+
+	for (int i = 0; i < iDim * iDim; ++i)
+		pShapeHeightField->GetElevationMap()[i] = ndReal (rand() * 2.0 * dMaxHeight / RAND_MAX);
+
+	pShapeHeightField->UpdateElevationMapAabb();
+	ndMatrix uvMatrix(ndGetIdentityMatrix());
+	uvMatrix[0][0] *= 0.025f;
+	uvMatrix[1][1] *= 0.025f;
+	uvMatrix[2][2] *= 0.025f;
+
+	ndSharedPtr<ndDemoMeshInterface>geometry(new ndDemoMesh("box", scene->GetShaderCache(), &shape, "marbleCheckBoard.tga", "marbleCheckBoard.tga", "marbleCheckBoard.tga", 1.0f, uvMatrix, false));
+	ndMatrix location(ndGetIdentityMatrix());
+	ndDemoEntity* const entity = new ndDemoEntity(location, nullptr);
+	entity->SetMesh(geometry);
+
+	ndBodyKinematic* const body = new ndBodyDynamic();
+	body->SetMatrix(location);
+	body->SetCollisionShape(shape);
+	ndSharedPtr<ndBody> bodyPtr(body);
+	scene->GetWorld()->AddBody(bodyPtr);
+	scene->AddEntity(entity);
+	return body;
+}
+
+static void AddBody(ndDemoEntityManager* const scene)
+{
+	ndVector vStart(5.0, 10.0, 0.0, 1.0);
+	ndMatrix location(ndGetIdentityMatrix());
+	location.m_posit = vStart;
+	auto pBody = AddBox(scene, location, 1.0f, 1.0f, 1.0f, 1.0f);
+	auto pUserData = static_cast<ndDemoEntity*>(pBody->GetNotifyCallback()->GetUserData());
+	pUserData->SetName("My Collision Object");
+}
+
+//void ndConvexCastTest(ndDemoEntityManager* const scene)
+void ndStaticMeshCollisionDemo(ndDemoEntityManager* const scene)
+{
+	// build the height field
+	auto pFloorBody = BuildHeightField(scene);
+	AddBody(scene);
+	ndSharedPtr<ndModel> convexCaster(new CConvexCaster(scene, pFloorBody));
+	scene->GetWorld()->AddModel(convexCaster);
+
+	ndQuaternion rot;
+	ndVector origin(-10.0f, 5.0f, 0.0f, 1.0f);
+	scene->SetCameraMatrix(rot, origin);
+}
+
+#else
+ndBodyKinematic* AddChamferCylinder(ndDemoEntityManager* const scene, const ndMatrix& location, ndFloat32 mass, ndFloat32 radius, ndFloat32 width, const char* const textName)
+{
+	ndShapeInstance shape(new ndShapeChamferCylinder(0.5, 1.0));
+	shape.SetScale(ndVector(width, radius, radius, ndFloat32 (1.0)));
+	ndBodyKinematic* const body = CreateBody(scene, shape, location, mass, textName);
+	return body;
+}
+
+static void BuildHeightField(ndDemoEntityManager* const scene)
+{
+	size_t iDim = 120;
+	ndFloat32 dSize = 15, dMaxHeight = 0.0;
+	std::vector<ndFloat32> aData; aData.resize(iDim * iDim);
+	ndFloat32 fHorizontalScale = ndFloat32(dSize / ndFloat32(iDim - 1));
+	ndShapeInstance shape(new ndShapeHeightfield(ndInt32(iDim), ndInt32(iDim), ndShapeHeightfield::m_normalDiagonals, fHorizontalScale, fHorizontalScale));
+	//ndShapeInstance shape(new ndShapeHeightfield(ndInt32(iDim), ndInt32(iDim), ndShapeHeightfield::m_invertedDiagonals, fHorizontalScale, fHorizontalScale));
+	ndMatrix mLocal(ndGetIdentityMatrix());
+	mLocal.m_posit = ndVector(-(dSize * 0.5), 0.0, -(dSize * 0.5), 1.0);
+	shape.SetLocalMatrix(mLocal);
+	auto pShapeHeightField = shape.GetShape()->GetAsShapeHeightfield();
+	for (int i = 0; i < ndInt32(iDim * iDim); ++i)
+	{
+		pShapeHeightField->GetElevationMap()[i] = ndReal(ndFloat32(rand()) * ndFloat32(2.0) * dMaxHeight / RAND_MAX);
+	}
+
+	pShapeHeightField->UpdateElevationMapAabb();
+	ndMatrix uvMatrix(ndGetIdentityMatrix());
+	uvMatrix[0][0] *= 0.025f;
+	uvMatrix[1][1] *= 0.025f;
+	uvMatrix[2][2] *= 0.025f;
+
+	ndSharedPtr<ndDemoMeshInterface>geometry(new ndDemoMesh("box", scene->GetShaderCache(), &shape, "marbleCheckBoard.tga", "marbleCheckBoard.tga", "marbleCheckBoard.tga", 1.0f, uvMatrix, false));
+	ndMatrix location(ndGetIdentityMatrix());
+	ndDemoEntity* const entity = new ndDemoEntity(location, nullptr);
+	entity->SetMesh(geometry);
+
+	ndBodyKinematic* const body = new ndBodyDynamic();
+	body->SetMatrix(location);
+	body->SetCollisionShape(shape);
+	ndSharedPtr<ndBody> bodyPtr(body);
+	scene->GetWorld()->AddBody(bodyPtr);
+	scene->AddEntity(entity);
+}
+
+static void AddBodies(ndDemoEntityManager* const scene)
+{
+	ndVector vStart(0.0f, 3.0f, 0.0f, 1.0f);
+	ndMatrix location(ndRollMatrix(10.0 * ndDegreeToRad));
+	location.m_posit = vStart;
+
+	ndBodyKinematic* const body = AddChamferCylinder(scene, location, 1.0f, 1.0f, 1.25f, "wood_0.tga");
+	body->SetMatrix(location);
+}
+
+//void ndHeightFieldTest(ndDemoEntityManager* const scene)
+void ndStaticMeshCollisionDemo(ndDemoEntityManager* const scene)
+{
+	// build the height field
+	BuildHeightField(scene);
+	AddBodies(scene);
+
+	ndQuaternion rot;
+	ndVector origin(-15.0f, 5.0f, 0.0f, 1.0f);
+	scene->SetCameraMatrix(rot, origin);
+}
+
+#endif
+#endif

@@ -11,8 +11,8 @@
 
 #include "ndSandboxStdafx.h"
 #include "ndDemoMesh.h"
+#include "ndMeshLoader.h"
 #include "ndDemoEntity.h"
-#include "ndLoadFbxMesh.h"
 #include "ndPhysicsWorld.h"
 #include "ndMakeStaticMap.h"
 #include "ndDemoEntityNotify.h"
@@ -198,7 +198,8 @@ ndBodyKinematic* BuildFlatPlane(ndDemoEntityManager* const scene, bool optimized
 
 ndBodyKinematic* BuildStaticMesh(ndDemoEntityManager* const scene, const char* const meshName, bool optimized)
 {
-	ndMeshEffectNode* const meshEffectNode = LoadFbxMeshEffectNode(meshName);
+	ndMeshLoader loader;
+	ndMesh* const meshEffectNode = loader.LoadMesh(meshName);
 	ndAssert(meshEffectNode);
 
 	ndDemoEntity* const visualEntity = new ndDemoEntity(scene, meshEffectNode);
@@ -209,15 +210,15 @@ ndBodyKinematic* BuildStaticMesh(ndDemoEntityManager* const scene, const char* c
 	
 	ndInt32 stack = 1;
 	ndMatrix matrixBuffer[1024];
-	ndMeshEffectNode* entBuffer[1024];
+	ndMesh* entBuffer[1024];
 	
 	entBuffer[0] = meshEffectNode;
-	matrixBuffer[0] = meshEffectNode->m_matrix.Inverse();
+	matrixBuffer[0] = meshEffectNode->m_matrix.OrthoInverse();
 	
 	while (stack)
 	{
 		stack--;
-		ndMeshEffectNode* const ent = entBuffer[stack];
+		ndMesh* const ent = entBuffer[stack];
 		ndMatrix matrix (ent->m_matrix * matrixBuffer[stack]);
 	
 		ndSharedPtr<ndMeshEffect> meshEffect = ent->GetMesh();
@@ -254,7 +255,7 @@ ndBodyKinematic* BuildStaticMesh(ndDemoEntityManager* const scene, const char* c
 			}
 		}
 	
-		for (ndMeshEffectNode* child = ent->GetFirstChild(); child; child = child->GetNext())
+		for (ndMesh* child = ent->GetFirstChild(); child; child = child->GetNext())
 		{
 			entBuffer[stack] = child;
 			matrixBuffer[stack] = matrix;
@@ -278,7 +279,8 @@ ndBodyKinematic* BuildStaticMesh(ndDemoEntityManager* const scene, const char* c
 
 ndBodyKinematic* BuildPlayArena(ndDemoEntityManager* const scene)
 {
-	ndMeshEffectNode* const meshEffectNode = LoadFbxMeshEffectNode("playerarena.fbx");
+	ndMeshLoader loader;
+	ndMesh* const meshEffectNode = loader.LoadMesh ("playerarena.fbx");
 	ndDemoEntity* const entity = new ndDemoEntity(scene, meshEffectNode);
 	scene->AddEntity(entity);
 
@@ -287,15 +289,15 @@ ndBodyKinematic* BuildPlayArena(ndDemoEntityManager* const scene)
 
 	ndInt32 stack = 1;
 	ndMatrix matrixBuffer[1024];
-	ndMeshEffectNode* entBuffer[1024];
+	ndMesh* entBuffer[1024];
 
 	entBuffer[0] = meshEffectNode;
-	matrixBuffer[0] = meshEffectNode->m_matrix.Inverse();
+	matrixBuffer[0] = meshEffectNode->m_matrix.OrthoInverse();
 
 	while (stack)
 	{
 		stack--;
-		ndMeshEffectNode* ent = entBuffer[stack];
+		ndMesh* ent = entBuffer[stack];
 
 		ndMatrix matrix(ent->m_matrix * matrixBuffer[stack]);
 
@@ -333,7 +335,7 @@ ndBodyKinematic* BuildPlayArena(ndDemoEntityManager* const scene)
 			}
 		}
 
-		for (ndMeshEffectNode* child = ent->GetFirstChild(); child; child = child->GetNext())
+		for (ndMesh* child = ent->GetFirstChild(); child; child = child->GetNext())
 		{
 			entBuffer[stack] = child;
 			matrixBuffer[stack] = matrix;

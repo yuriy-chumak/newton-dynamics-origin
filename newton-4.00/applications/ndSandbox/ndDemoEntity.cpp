@@ -11,11 +11,10 @@
 
 #include "ndSandboxStdafx.h"
 #include "ndDemoMesh.h"
+#include "ndMeshLoader.h"
 #include "ndDemoEntity.h"
 #include "ndDemoCamera.h"
-#include "ndLoadFbxMesh.h"
 #include "ndDemoSkinMesh.h"
-#include "ndAnimationPose.h"
 
 ndDemoEntity::ndDemoEntity(const ndMatrix& matrix, ndDemoEntity* const parent)
 	:ndNodeHierarchy<ndDemoEntity>()
@@ -38,7 +37,7 @@ ndDemoEntity::ndDemoEntity(const ndMatrix& matrix, ndDemoEntity* const parent)
 	}
 }
 
-ndDemoEntity::ndDemoEntity(ndDemoEntityManager* const scene, ndMeshEffectNode* const meshEffectNode)
+ndDemoEntity::ndDemoEntity(ndDemoEntityManager* const scene, ndMesh* const meshEffectNode)
 	:ndNodeHierarchy<ndDemoEntity>()
 	,m_matrix(meshEffectNode->m_matrix)
 	,m_curPosition(meshEffectNode->m_matrix.m_posit)
@@ -55,20 +54,20 @@ ndDemoEntity::ndDemoEntity(ndDemoEntityManager* const scene, ndMeshEffectNode* c
 {
 	ndInt32 stack = 1;
 	ndDemoEntity* parentEntityBuffer[256];
-	ndMeshEffectNode* effectNodeBuffer[256];
+	ndMesh* effectNodeBuffer[256];
 	struct EntityMeshPair
 	{
 		EntityMeshPair()
 		{
 		}
 
-		EntityMeshPair(ndDemoEntity* const entity, ndMeshEffectNode* const effectNode)
+		EntityMeshPair(ndDemoEntity* const entity, ndMesh* const effectNode)
 			:m_entity(entity)
 			,m_effectNode(effectNode)
 		{
 		}
 		ndDemoEntity* m_entity;
-		ndMeshEffectNode* m_effectNode;
+		ndMesh* m_effectNode;
 	};
 	ndFixSizeArray<EntityMeshPair, 1024> meshArray;
 
@@ -79,36 +78,20 @@ ndDemoEntity::ndDemoEntity(ndDemoEntityManager* const scene, ndMeshEffectNode* c
 	{
 		stack--;
 		ndDemoEntity* const parent = parentEntityBuffer[stack];
-		ndMeshEffectNode* const effectNode = effectNodeBuffer[stack];
+		ndMesh* const effectNode = effectNodeBuffer[stack];
 
 		ndDemoEntity* const entity = isRoot ? this : new ndDemoEntity(effectNode->m_matrix, parent);
 		isRoot = false;
 
 		entity->SetName(effectNode->GetName().GetStr());
 
-		ndSharedPtr<ndMeshEffect> meshEffect = effectNode->GetMesh();
+		ndSharedPtr<ndMeshEffect> meshEffect (effectNode->GetMesh());
 		if (*meshEffect)
 		{
-			//ndDemoMeshInterface* mesh = nullptr;
-			//if (!meshEffect->GetCluster().GetCount())
-			//{
-			//	mesh = new ndDemoMesh(effectNode->GetName().GetStr(), *meshEffect, scene->GetShaderCache());
-			//}
-			//else
-			//{
-			//	mesh = new ndDemoSkinMesh(entity, *meshEffect, scene->GetShaderCache());
-			//}
-			//entity->SetMesh(ndSharedPtr<ndDemoMeshInterface>(mesh), effectNode->m_meshMatrix);
-			//
-			//if ((effectNode->GetName().Find("hidden") >= 0) || (effectNode->GetName().Find("Hidden") >= 0))
-			//{
-			//	mesh->m_isVisible = false;
-			//}
-
 			meshArray.PushBack(EntityMeshPair(entity, effectNode));
 		}
 
-		for (ndMeshEffectNode* child = effectNode->GetLastChild(); child; child = child->GetPrev())
+		for (ndMesh* child = effectNode->GetLastChild(); child; child = child->GetPrev())
 		{
 			effectNodeBuffer[stack] = child;
 			parentEntityBuffer[stack] = entity;
@@ -118,18 +101,19 @@ ndDemoEntity::ndDemoEntity(ndDemoEntityManager* const scene, ndMeshEffectNode* c
 
 	for (ndInt32 i = 0; i < meshArray.GetCount(); ++i)
 	{
-		ndDemoEntity* const entity = meshArray[i].m_entity;
-		ndMeshEffectNode* const effectNode = meshArray[i].m_effectNode;
 		ndDemoMeshInterface* mesh = nullptr;
+		ndDemoEntity* const entity = meshArray[i].m_entity;
+		ndMesh* const effectNode = meshArray[i].m_effectNode;
 
-		ndSharedPtr<ndMeshEffect> meshEffect = effectNode->GetMesh();
-		if (!meshEffect->GetCluster().GetCount())
+		ndAssert(effectNode);
+		ndSharedPtr<ndMeshEffect> meshEffect (effectNode->GetMesh());
+		if (meshEffect->GetVertexWeights().GetCount())
 		{
-			mesh = new ndDemoMesh(effectNode->GetName().GetStr(), *meshEffect, scene->GetShaderCache());
+			mesh = new ndDemoSkinMesh(entity, *meshEffect, scene->GetShaderCache());
 		}
 		else
 		{
-			mesh = new ndDemoSkinMesh(entity, *meshEffect, scene->GetShaderCache());
+			mesh = new ndDemoMesh(effectNode->GetName().GetStr(), *meshEffect, scene->GetShaderCache());
 		}
 		entity->SetMesh(ndSharedPtr<ndDemoMeshInterface>(mesh), effectNode->m_meshMatrix);
 		
@@ -155,6 +139,10 @@ ndDemoEntity::ndDemoEntity(const ndDemoEntity& copyFrom)
 	,m_isDead(false)
 	,m_isVisible(copyFrom.m_isVisible)
 {
+	if (*m_mesh && m_mesh->GetAsDemoSkinMesh())
+	{
+		m_mesh = ndSharedPtr<ndDemoMeshInterface> (m_mesh->Clone(this));
+	}
 }
 
 ndDemoEntity::~ndDemoEntity(void)
@@ -169,18 +157,6 @@ const ndString& ndDemoEntity::GetName() const
 void ndDemoEntity::SetName(const ndString& name)
 {
 	m_name = name;
-}
-
-ndDemoEntity* ndDemoEntity::LoadFbx(const char* const filename, ndDemoEntityManager* const scene)
-{
-	ndDemoEntity* rootEntity = nullptr;
-	ndMeshEffectNode* const fbxEntity = LoadFbxMeshEffectNode(filename);
-	if (fbxEntity)
-	{
-		rootEntity = new ndDemoEntity(scene, fbxEntity);
-		delete fbxEntity;
-	}
-	return rootEntity;
 }
 
 ndDemoEntity* ndDemoEntity::CreateClone () const
@@ -211,7 +187,7 @@ void ndDemoEntity::SetMeshMatrix(const ndMatrix& matrix)
 
 ndMatrix ndDemoEntity::GetCurrentMatrix () const
 {
-	return ndMatrix (m_curRotation, m_curPosition);
+	return ndCalculateMatrix(m_curRotation, m_curPosition);
 }
 
 ndAnimKeyframe ndDemoEntity::GetCurrentTransform() const
@@ -221,7 +197,7 @@ ndAnimKeyframe ndDemoEntity::GetCurrentTransform() const
 
 ndMatrix ndDemoEntity::GetNextMatrix () const
 {
-	return ndMatrix (m_nextRotation, m_nextPosition);
+	return ndCalculateMatrix(m_nextRotation, m_nextPosition);
 }
 
 ndMatrix ndDemoEntity::CalculateGlobalMatrix (const ndDemoEntity* const root) const
@@ -286,7 +262,7 @@ void ndDemoEntity::InterpolateMatrix(ndFloat32 param)
 
 		ndVector posit(p0 + (p1 - p0).Scale(param));
 		ndQuaternion rotation(r0.Slerp(r1, param));
-		m_matrix = ndMatrix(rotation, posit);
+		m_matrix = ndCalculateMatrix(rotation, posit);
 	}
 
 	for (ndDemoEntity* child = GetFirstChild(); child; child = child->GetNext()) 
@@ -376,7 +352,7 @@ void ndDemoEntity::RenderBone(ndDemoEntityManager* const scene, const ndMatrix& 
 	if (parent)
 	{
 		//glDisable(GL_TEXTURE_2D);
-		ndMatrix parentMatrix(m_matrix.Inverse() * nodeMatrix);
+		ndMatrix parentMatrix(m_matrix.OrthoInverse() * nodeMatrix);
 		ndVector p0(nodeMatrix.m_posit);
 		ndVector p1(parentMatrix.m_posit);
 		ndVector color(0.0f, 0.0f, 0.0f, 1.0f);

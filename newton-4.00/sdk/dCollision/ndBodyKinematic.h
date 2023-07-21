@@ -32,8 +32,9 @@ class ndModel;
 class ndSkeletonContainer;
 class ndJointBilateralConstraint;
 
+#define D_USE_FULL_INERTIA
 #define	D_FREEZZING_VELOCITY_DRAG	ndFloat32 (0.9f)
-#define	D_SOLVER_MAX_ERROR			(D_FREEZE_MAG * ndFloat32 (0.5f))
+#define	D_SOLVER_MAX_ACCEL_ERROR	(D_FREEZE_MAG * ndFloat32 (0.5f))
 
 D_MSV_NEWTON_ALIGN_32
 class ndBodyKinematic : public ndBody
@@ -50,8 +51,9 @@ class ndBodyKinematic : public ndBody
 		union
 		{
 			ndUnsigned64 m_tag;
-			struct
+			class
 			{
+				public:
 				ndUnsigned32 m_tagLow;
 				ndUnsigned32 m_tagHigh;
 			};
@@ -122,22 +124,21 @@ class ndBodyKinematic : public ndBody
 	D_COLLISION_API virtual ndVector CalculateAngularMomentum() const;
 	D_COLLISION_API ndFloat32 TotalEnergy() const;
 
+	D_COLLISION_API virtual void IntegrateVelocity(ndFloat32 timestep);
+	D_COLLISION_API void SetMatrixUpdateScene(const ndMatrix& matrix);
+	D_COLLISION_API virtual ndContact* FindContact(const ndBody* const otherBody) const;
+
 	D_COLLISION_API ndMatrix CalculateInertiaMatrix() const;
 	D_COLLISION_API virtual ndMatrix CalculateInvInertiaMatrix() const;
+	D_COLLISION_API virtual void SetMassMatrix(ndFloat32 mass, const ndMatrix& inertia);
+	D_COLLISION_API void SetMassMatrix(ndFloat32 mass, const ndShapeInstance& shapeInstance, bool fullInertia = false);
 	
-	D_COLLISION_API virtual void IntegrateVelocity(ndFloat32 timestep);
-
 	void UpdateInvInertiaMatrix();
 	void SetMassMatrix(const ndVector& massMatrix);
 	void SetMassMatrix(ndFloat32 Ixx, ndFloat32 Iyy, ndFloat32 Izz, ndFloat32 mass);
-	D_COLLISION_API virtual void SetMassMatrix(ndFloat32 mass, const ndMatrix& inertia);
-	D_COLLISION_API void SetMassMatrix(ndFloat32 mass, const ndShapeInstance& shapeInstance, bool fullInertia = false);
 
 	ndMatrix GetPrincipalAxis() const;
 	void GetMassMatrix(ndFloat32& Ixx, ndFloat32& Iyy, ndFloat32& Izz, ndFloat32& mass);
-
-	D_COLLISION_API void SetMatrixUpdateScene(const ndMatrix& matrix);
-	D_COLLISION_API virtual ndContact* FindContact(const ndBody* const otherBody) const;
 
 	virtual ndBodyKinematic* GetAsBodyKinematic();
 
@@ -185,10 +186,13 @@ class ndBodyKinematic : public ndBody
 	virtual void AddDampingAcceleration(ndFloat32 timestep);
 	
 	D_COLLISION_API virtual void EvaluateSleepState(ndFloat32 freezeSpeed2, ndFloat32 freezeAccel2);
-	
+
+	virtual void SetAcceleration(const ndVector& accel, const ndVector& alpha);
+
+#ifdef D_USE_FULL_INERTIA
 	ndMatrix m_inertiaPrincipalAxis;
+#endif
 	ndMatrix m_invWorldInertiaMatrix;
-	
 	ndShapeInstance m_shapeInstance;
 	ndVector m_mass;
 	ndVector m_invMass;
@@ -228,6 +232,7 @@ class ndBodyKinematic : public ndBody
 	friend class ndWorldSceneCuda;
 	friend class ndBvhSceneManager;
 	friend class ndSkeletonContainer;
+	friend class ndModelArticulation;
 	friend class ndDynamicsUpdateSoa;
 	friend class ndDynamicsUpdateAvx2;
 	friend class ndDynamicsUpdateSycl;
@@ -263,7 +268,6 @@ inline const ndVector& ndBodyKinematic::GetMassMatrix() const
 
 inline const ndMatrix& ndBodyKinematic::GetInvInertiaMatrix() const
 {
-	ndAssert(0);
 	return m_invWorldInertiaMatrix;
 }
 
@@ -301,7 +305,11 @@ inline void ndBodyKinematic::SetMassMatrix(ndFloat32 Ixx, ndFloat32 Iyy, ndFloat
 
 inline ndMatrix ndBodyKinematic::GetPrincipalAxis() const
 {
+#ifdef D_USE_FULL_INERTIA	
 	return m_inertiaPrincipalAxis;
+#else
+	return ndGetIdentityMatrix();
+#endif
 }
 
 inline ndBodyKinematic* ndBodyKinematic::GetAsBodyKinematic() 
@@ -525,5 +533,10 @@ inline void ndBodyKinematic::ApplyExternalForces(ndInt32, ndFloat32)
 {
 }
 
+inline void ndBodyKinematic::SetAcceleration(const ndVector&, const ndVector&)
+{
+	m_accel = ndVector::m_zero;
+	m_alpha = ndVector::m_zero;
+}
 #endif 
 

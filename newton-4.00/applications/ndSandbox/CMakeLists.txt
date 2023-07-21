@@ -21,17 +21,15 @@ file(GLOB CPP_SOURCE
 	demos/*.cpp
 	toolbox/*.h
 	toolbox/*.cpp 
-	animation/*.h
-	animation/*.cpp 
 )
 
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/" FILES ${CPP_SOURCE})
 
 include_directories(.)
 include_directories(toolbox)
-include_directories(animation)
 include_directories(../../sdk/dCore)
 include_directories(../../sdk/dBrain)
+include_directories(../../sdk/dModel)
 include_directories(../../sdk/dNewton)
 include_directories(../../sdk/dCollision)
 include_directories(../../sdk/dFileFormat)
@@ -39,7 +37,6 @@ include_directories(../../sdk/dNewton/dJoints)
 include_directories(../../sdk/dNewton/dModels)
 include_directories(../../sdk/dNewton/dIkSolver)
 include_directories(../../sdk/dNewton/dModels/dVehicle)
-include_directories(../../sdk/dNewton/dModels/dCharacter)
 
 include_directories(../../thirdParty/glfw/)
 include_directories(../../thirdParty/imgui/)
@@ -53,7 +50,7 @@ include_directories(../../thirdParty/openalRuntime/win32sdk/include)
 
 add_executable(${projectName} ${CPP_SOURCE})
 
-target_link_libraries (${projectName} ndNewton ndBrain ndFileFormat vhacd openfbx glfw imgui glatter ndTinyxml)
+target_link_libraries (${projectName} ndNewton ndBrain ndModel ndFileFormat ndTinyxml vhacd openfbx glfw imgui glatter)
 
 if (NEWTON_BUILD_CREATE_SUB_PROJECTS)
 	target_link_libraries (${projectName} ndCollision ndCore)

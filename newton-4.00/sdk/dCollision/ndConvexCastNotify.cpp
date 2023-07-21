@@ -29,26 +29,27 @@
 
 bool ndConvexCastNotify::CastShape(const ndShapeInstance& castingInstance, const ndMatrix& globalOrigin, const ndVector& globalDest, ndBodyKinematic* const targetBody)
 {
+	ndAssert(m_cachedScene);
 	ndContact contactJoint;
 	ndBodyKinematic body0;
-	ndContactNotify notify;
+	ndContactNotify notify(m_cachedScene);
 	ndFixSizeArray<ndContactPoint, D_MAX_CONTATCS> contactBuffer;
 	contactBuffer.SetCount(D_MAX_CONTATCS);
-
+	
 	body0.SetCollisionShape(castingInstance);
 	body0.SetMatrix(globalOrigin);
 	body0.SetMassMatrix(ndVector::m_one);
 	body0.SetVelocity(globalDest - globalOrigin.m_posit);
-
+	
 	contactJoint.SetBodies(&body0, targetBody);
-
+	
 	ndShapeInstance& shape0 = body0.GetCollisionShape();
 	shape0.SetGlobalMatrix(shape0.GetLocalMatrix() * body0.GetMatrix());
-
+	
 	m_contacts.SetCount(0);
 	ndContactSolver contactSolver(&contactJoint, &notify, ndFloat32(1.0f), 0);
 	contactSolver.m_contactBuffer = &contactBuffer[0];
-
+	
 	m_param = ndFloat32(1.2f);
 	const ndInt32 count = ndMin(contactSolver.CalculateContactsContinue(), m_contacts.GetCapacity());
 	if (count)
@@ -57,7 +58,9 @@ bool ndConvexCastNotify::CastShape(const ndShapeInstance& castingInstance, const
 		{
 			ndContactPoint& contact = contactBuffer[i];
 			contact.m_body0 = nullptr;
+			contact.m_body1 = targetBody;
 			contact.m_shapeInstance0 = &castingInstance;
+			contact.m_shapeInstance1 = &targetBody->GetCollisionShape();
 			m_contacts.PushBack(contactBuffer[i]);
 		}
 		m_param = contactSolver.m_timestep;
@@ -84,7 +87,6 @@ bool ndConvexCastNotify::CastShape(
 	shape1.SetGlobalMatrix(shape1.GetLocalMatrix() * body1.GetMatrix());
 
 	bool cast = CastShape(castingInstance, globalOrigin, globalDest, &body1);
-	//return CastShape(castingInstance, globalOrigin, globalDest, &body1);
 	for (ndInt32 i = 0; i < m_contacts.GetCount(); ++i)
 	{
 		ndContactPoint& contact = m_contacts[i];

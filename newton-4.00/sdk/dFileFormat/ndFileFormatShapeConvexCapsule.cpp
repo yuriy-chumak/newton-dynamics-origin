@@ -32,9 +32,9 @@ ndFileFormatShapeConvexCapsule::ndFileFormatShapeConvexCapsule(const char* const
 {
 }
 
-ndInt32 ndFileFormatShapeConvexCapsule::SaveShape(ndFileFormat* const scene, nd::TiXmlElement* const parentNode, const ndShape* const shape)
+ndInt32 ndFileFormatShapeConvexCapsule::SaveShape(ndFileFormatSave* const scene, nd::TiXmlElement* const parentNode, const ndShape* const shape)
 {
-	nd::TiXmlElement* const classNode = xmlCreateClassNode(parentNode, "ndShape", ndShapeCapsule::StaticClassName());
+	nd::TiXmlElement* const classNode = xmlCreateClassNode(parentNode, D_SHAPE_CLASS, ndShapeCapsule::StaticClassName());
 	ndFileFormatShapeConvex::SaveShape(scene, classNode, shape);
 
 	const ndShapeCapsule* const capsule = (ndShapeCapsule*)shape;
@@ -43,4 +43,12 @@ ndInt32 ndFileFormatShapeConvexCapsule::SaveShape(ndFileFormat* const scene, nd:
 	xmlSaveParam(classNode, "radius0", capsule->m_radius0);
 	xmlSaveParam(classNode, "radius1", capsule->m_radius1);
 	return xmlGetNodeId(classNode);
+}
+
+ndShape* ndFileFormatShapeConvexCapsule::LoadShape(const nd::TiXmlElement* const node, const ndTree<ndShape*, ndInt32>&)
+{
+	ndFloat32 height = xmlGetFloat(node, "height");
+	ndFloat32 radius0 = xmlGetFloat(node, "radius0");
+	ndFloat32 radius1 = xmlGetFloat(node, "radius1");
+	return new ndShapeCapsule(radius0, radius1, height * ndFloat32 (2.0f));
 }

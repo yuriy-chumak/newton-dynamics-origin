@@ -14,7 +14,6 @@ include_directories(../sdk/dNewton/dModels)
 include_directories(../sdk/dNewton/dIkSolver)
 include_directories(../sdk/dNewton/dParticles)
 include_directories(../sdk/dNewton/dModels/dVehicle)
-include_directories(../sdk/dNewton/dModels/dCharacter)
 
 # ----------------------------------------------------------------------
 # Google Test Settings.
@@ -38,25 +37,27 @@ FetchContent_MakeAvailable(googletest)
 enable_testing()
 include(GoogleTest)
 
+file(GLOB CPP_SOURCE *.cpp)
+
 # ----------------------------------------------------------------------
 # Compile the test cases into a single binary.
 # ----------------------------------------------------------------------
-add_executable(
-  ${PROJECT_NAME}
-  world_test.cpp
-  phantom_test.cpp
-  rigidBody_test.cpp
-  staticBody_test.cpp
-  instancing_test.cpp
-  raycast_filter_test.cpp
-  bodyNotifyCallback_test.cpp
-)
+add_executable(${PROJECT_NAME} ${CPP_SOURCE})
 
-target_link_libraries(
-  ${PROJECT_NAME}
-  GTest::gtest_main
-)
-target_link_libraries (${PROJECT_NAME} ndNewton ndSolverAvx2)
+target_link_libraries(${PROJECT_NAME} GTest::gtest_main)
+target_link_libraries(${PROJECT_NAME} ndNewton ndSolverAvx2)
+
+if(NEWTON_ENABLE_AVX2_SOLVER)
+	target_link_libraries (${PROJECT_NAME} ndSolverAvx2)
+endif()
+
+if (NEWTON_ENABLE_CUDA_SOLVER)
+	target_link_libraries (${PROJECT_NAME} ndSolverCuda)
+endif()
+
+if (NEWTON_ENABLE_SYCL_SOLVER)
+	target_link_libraries (${PROJECT_NAME} ndSolverSycl)
+endif()
 
 if (MSVC)
 	target_compile_options(${PROJECT_NAME} PRIVATE "/W4")

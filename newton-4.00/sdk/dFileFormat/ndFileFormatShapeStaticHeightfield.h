@@ -31,7 +31,8 @@ class ndFileFormatShapeStaticHeightfield : public ndFileFormatShapeStaticMesh
 	ndFileFormatShapeStaticHeightfield();
 	ndFileFormatShapeStaticHeightfield(const char* const className);
 
-	virtual ndInt32 SaveShape(ndFileFormat* const scene, nd::TiXmlElement* const parentNode, const ndShape* const shape);
+	virtual ndShape* LoadShape(const nd::TiXmlElement* const nNode, const ndTree<ndShape*, ndInt32>& shapeMap);
+	virtual ndInt32 SaveShape(ndFileFormatSave* const scene, nd::TiXmlElement* const parentNode, const ndShape* const shape);
 };
 
 #endif 

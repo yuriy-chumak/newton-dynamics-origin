@@ -322,8 +322,8 @@ void ndShapeConvexPolygon::GenerateConvexCap(const ndShapeInstance* const parent
 		const ndVector adjacentNormal(CalculateGlobalNormal(parentMesh, localAdjacentNormal & ndVector::m_triplexMask));
 
 		//TODO: 
-		//this could be a big problem, the edge share by tow face sould ne perpendicular to the two normal
-		//and it is not, I need to debug this. with a repro, but for now just ignore it.
+		//this could be a big problem, the edge shared by two faces should be perpendicular to the two normal
+		//and it is not, I need to debug this with a repro, but for now just ignore it.
 		//ndAssert(edge.DotProduct(adjacentNormal).GetScalar() < ndFloat32(5.0e-2f));
 		ndAssert(edge.DotProduct(adjacentNormal).GetScalar() < ndFloat32(2.0e-1f));
 
@@ -595,7 +595,7 @@ ndInt32 ndShapeConvexPolygon::CalculateContactToConvexHullContinue(const ndShape
 	
 	ndVector hullBoxP0;
 	ndVector hullBoxP1;
-	ndMatrix hullMatrix(contactSolver.m_instance0.m_globalMatrix * polygonMatrix.Inverse());
+	ndMatrix hullMatrix(contactSolver.m_instance0.m_globalMatrix * polygonMatrix.OrthoInverse());
 	contactSolver.m_instance0.CalculateAabb(hullMatrix, hullBoxP0, hullBoxP1);
 	ndVector minBox(polyBoxP0 - hullBoxP1);
 	ndVector maxBox(polyBoxP1 - hullBoxP0);
@@ -652,7 +652,8 @@ ndInt32 ndShapeConvexPolygon::CalculateContactToConvexHullContinue(const ndShape
 		if (inside & !contactSolver.m_intersectionTestOnly) 
 		{
 			const ndMatrix& matrixInstance0 = contactSolver.m_instance0.m_globalMatrix;
-			const ndVector normalInHull(matrixInstance0.UnrotateVector(m_normal.Scale(ndFloat32(-1.0f))));
+			//const ndVector normalInHull(matrixInstance0.UnrotateVector(m_normal.Scale(ndFloat32(-1.0f))));
+			const ndVector normalInHull(matrixInstance0.UnrotateVector(m_normal * ndVector::m_negOne));
 			ndVector pointInHull(contactSolver.m_instance0.SupportVertex(normalInHull));
 			const ndVector p0(matrixInstance0.TransformVector(pointInHull));
 	

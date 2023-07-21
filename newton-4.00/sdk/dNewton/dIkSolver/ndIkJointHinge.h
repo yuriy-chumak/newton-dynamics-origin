@@ -15,10 +15,15 @@
 #include "ndNewtonStdafx.h"
 #include "ndJointHinge.h"
 
+// setting to a value larger that D_IK_HINGE_MAX_TORQUE, disable torque limit
+#define D_IK_HINGE_MAX_TORQUE ndFloat32 (1.0e10f)
+
 class ndIkJointHinge: public ndJointHinge, public ndJointBilateralConstraint::ndIkInterface
 {
 	public:
 	D_CLASS_REFLECTION(ndIkJointHinge, ndJointHinge)
+
+	D_NEWTON_API ndIkJointHinge();
 	D_NEWTON_API ndIkJointHinge(const ndMatrix& pinAndPivotFrame, ndBodyKinematic* const child, ndBodyKinematic* const parent);
 	D_NEWTON_API ndIkJointHinge(const ndMatrix& pinAndPivotInChild, const ndMatrix& pinAndPivotInParent, ndBodyKinematic* const child, ndBodyKinematic* const parent);
 	D_NEWTON_API virtual ~ndIkJointHinge();
@@ -26,8 +31,13 @@ class ndIkJointHinge: public ndJointHinge, public ndJointBilateralConstraint::nd
 	// inverse dynamics interface
 	D_ADD_IK_INTERFACE()
 
+	D_NEWTON_API ndFloat32 GetMaxTorque() const;
+	D_NEWTON_API void SetMaxTorque(ndFloat32 maxTorque);
+
 	protected:
 	D_NEWTON_API void JacobianDerivative(ndConstraintDescritor& desc);
+
+	ndFloat32 m_maxTorque;
 };
 
 #endif 

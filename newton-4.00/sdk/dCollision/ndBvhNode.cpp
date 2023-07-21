@@ -1101,6 +1101,60 @@ void ndBvhSceneManager::BuildBvhGenerateLayerGrids(ndThreadPool& threadPool)
 		ndInt32 m_code[5];
 	};
 
+#define USE_FULL_32_BIT_SPACE
+#ifdef USE_FULL_32_BIT_SPACE
+	class ndSortCell_x
+	{
+		public:
+		ndSortCell_x(const void* const shift)
+		{
+			m_shift = *((ndInt32*)shift);
+		}
+
+		ndInt32 GetKey(const ndBottomUpCell& cell) const
+		{
+			ndInt32 val = cell.m_x >> m_shift;
+			return val & 0xff;
+		}
+
+		ndInt32 m_shift;
+	};
+
+	class ndSortCell_y
+	{
+		public:
+		ndSortCell_y(const void* const shift)
+		{
+			m_shift = *((ndInt32*)shift);
+		}
+
+		ndInt32 GetKey(const ndBottomUpCell& cell) const
+		{
+			ndInt32 val = cell.m_y >> m_shift;
+			return val & 0xff;
+		}
+
+		ndInt32 m_shift;
+	};
+
+	class ndSortCell_z
+	{
+		public:
+		ndSortCell_z(const void* const shift)
+		{
+			m_shift = *((ndInt32*)shift);
+		}
+
+		ndInt32 GetKey(const ndBottomUpCell& cell) const
+		{
+			ndInt32 val = cell.m_z >> m_shift;
+			return val & 0xff;
+		}
+
+		ndInt32 m_shift;
+	};
+
+#else
 	class ndSortCell_xlow
 	{
 		public:
@@ -1179,6 +1233,46 @@ void ndBvhSceneManager::BuildBvhGenerateLayerGrids(ndThreadPool& threadPool)
 		}
 	};
 
+	class ndSortCell_xHigh
+	{
+		public:
+		ndSortCell_xHigh(const void* const)
+		{
+		}
+
+		ndInt32 GetKey(const ndBottomUpCell& cell) const
+		{
+			return (cell.m_x >> 16) & 0xff;
+		}
+	};
+
+	class ndSortCell_yHigh
+	{
+		public:
+		ndSortCell_yHigh(const void* const)
+		{
+		}
+
+		ndInt32 GetKey(const ndBottomUpCell& cell) const
+		{
+			return (cell.m_y >> 16) & 0xff;
+		}
+	};
+
+	class ndSortCell_zHigh
+	{
+		public:
+		ndSortCell_zHigh(const void* const)
+		{
+		}
+
+		ndInt32 GetKey(const ndBottomUpCell& cell) const
+		{
+			return (cell.m_z >> 16) & 0xff;
+		}
+	};
+#endif
+
 	class ndSortCellCount
 	{
 		public:
@@ -1246,26 +1340,61 @@ void ndBvhSceneManager::BuildBvhGenerateLayerGrids(ndThreadPool& threadPool)
 			maxGrids[0][2] = ndMax(maxGrids[i][2], maxGrids[0][2]);
 		}
 
+#ifdef USE_FULL_32_BIT_SPACE
+		ndAssert(maxGrids[0][0] < 0x7fffffff);
+		ndAssert(maxGrids[0][1] < 0x7fffffff);
+		ndAssert(maxGrids[0][2] < 0x7fffffff);
+		ndInt64 shift = 0;
+		do {
+			ndCountingSort<ndBottomUpCell, ndSortCell_x, 8>(threadPool, m_bvhBuildState.m_cellBuffer0, m_bvhBuildState.m_cellBuffer1, nullptr, &shift);
+			shift += 8;
+		} while (ndInt64(maxGrids[0][0]) > ndInt64(1) << shift);
+
+		shift = 0;
+		do {
+			ndCountingSort<ndBottomUpCell, ndSortCell_y, 8>(threadPool, m_bvhBuildState.m_cellBuffer0, m_bvhBuildState.m_cellBuffer1, nullptr, &shift);
+			shift += 8;
+		} while (ndInt64(maxGrids[0][1]) > ndInt64(1) << shift);
+
+		shift = 0;
+		do {
+			ndCountingSort<ndBottomUpCell, ndSortCell_z, 8>(threadPool, m_bvhBuildState.m_cellBuffer0, m_bvhBuildState.m_cellBuffer1, nullptr, &shift);
+			shift += 8;
+		} while (ndInt64(maxGrids[0][2]) > ndInt64(1) << shift);
+#else
 		ndCountingSort<ndBottomUpCell, ndSortCell_xlow, 8>(threadPool, m_bvhBuildState.m_cellBuffer0, m_bvhBuildState.m_cellBuffer1, nullptr, nullptr);
 		if (maxGrids[0][0] > 256)
 		{
 			ndCountingSort<ndBottomUpCell, ndSortCell_xMid, 8>(threadPool, m_bvhBuildState.m_cellBuffer0, m_bvhBuildState.m_cellBuffer1, nullptr, nullptr);
-			ndAssert(maxGrids[0][0] < 256 * 256);
+			if (maxGrids[0][0] > 256 * 256)
+			{
+				ndCountingSort<ndBottomUpCell, ndSortCell_xHigh, 8>(threadPool, m_bvhBuildState.m_cellBuffer0, m_bvhBuildState.m_cellBuffer1, nullptr, nullptr);
+				ndAssert(maxGrids[0][0] < 256 * 256 * 256);
+			}
 		}
 
 		ndCountingSort<ndBottomUpCell, ndSortCell_ylow, 8>(threadPool, m_bvhBuildState.m_cellBuffer0, m_bvhBuildState.m_cellBuffer1, nullptr, nullptr);
 		if (maxGrids[0][1] > 256)
 		{
 			ndCountingSort<ndBottomUpCell, ndSortCell_yMid, 8>(threadPool, m_bvhBuildState.m_cellBuffer0, m_bvhBuildState.m_cellBuffer1, nullptr, nullptr);
-			ndAssert(maxGrids[0][1] < 256 * 256);
+			if (maxGrids[0][1] > 256 * 256)
+			{
+				ndCountingSort<ndBottomUpCell, ndSortCell_yHigh, 8>(threadPool, m_bvhBuildState.m_cellBuffer0, m_bvhBuildState.m_cellBuffer1, nullptr, nullptr);
+				ndAssert(maxGrids[0][1] < 256 * 256 * 256);
+			}
 		}
 
 		ndCountingSort<ndBottomUpCell, ndSortCell_zlow, 8>(threadPool, m_bvhBuildState.m_cellBuffer0, m_bvhBuildState.m_cellBuffer1, nullptr, nullptr);
 		if (maxGrids[0][2] > 256)
 		{
 			ndCountingSort<ndBottomUpCell, ndSortCell_zMid, 8>(threadPool, m_bvhBuildState.m_cellBuffer0, m_bvhBuildState.m_cellBuffer1, nullptr, nullptr);
-			ndAssert(maxGrids[0][2] < 256 * 256);
+			if (maxGrids[0][2] > 256 * 256)
+			{
+				ndCountingSort<ndBottomUpCell, ndSortCell_zHigh, 8>(threadPool, m_bvhBuildState.m_cellBuffer0, m_bvhBuildState.m_cellBuffer1, nullptr, nullptr);
+				ndAssert(maxGrids[0][2] < 256 * 256 * 256);
+			}
 		}
+#endif
 
 		ndBottomUpCell sentinelCell;
 		sentinelCell.m_x = ndUnsigned32(-1);

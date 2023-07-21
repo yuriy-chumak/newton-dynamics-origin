@@ -13,10 +13,10 @@
 #include "ndSkyBox.h"
 #include "ndDemoMesh.h"
 #include "ndVehicleUI.h"
+#include "ndMeshLoader.h"
 #include "ndDemoEntity.h"
 #include "ndDemoCamera.h"
 #include "ndShaderCache.h"
-#include "ndLoadFbxMesh.h"
 #include "ndFileBrowser.h"
 #include "ndDebugDisplay.h"
 #include "ndPhysicsWorld.h"
@@ -29,7 +29,6 @@
 #include "ndDemoEntityManager.h"
 #include "ndDemoCameraManager.h"
 #include "ndDemoCameraManager.h"
-#include "ndAnimationSequence.h"
 #include "ndHighResolutionTimer.h"
 
 //#define ENABLE_REPLAY
@@ -37,7 +36,7 @@
 	//#define REPLAY_RECORD
 #endif
 
-#define DEFAULT_SCENE	0		// basic rigidbody
+//#define DEFAULT_SCENE	0		// basic rigidbody
 //#define DEFAULT_SCENE	1		// gpu basic rigidbody
 //#define DEFAULT_SCENE	2		// friction ramp
 //#define DEFAULT_SCENE	3		// basic compound shapes
@@ -55,17 +54,19 @@
 //#define DEFAULT_SCENE	15		// advanced industrial robot
 //#define DEFAULT_SCENE	16		// basic player
 //#define DEFAULT_SCENE	17		// rag doll
-//#define DEFAULT_SCENE	18		// zero moment point
-//#define DEFAULT_SCENE	19		// quadruped test 1
-//#define DEFAULT_SCENE	20		// quadruped test 2
-//#define DEFAULT_SCENE	21		// quadruped test 3
-//#define DEFAULT_SCENE	22		// biped test 1
-//#define DEFAULT_SCENE	23		// biped test 2
-//#define DEFAULT_SCENE	24		// train biped test 2
-//#define DEFAULT_SCENE	25		// simple voronoi fracture
-//#define DEFAULT_SCENE	26		// basic voronoi fracture
-//#define DEFAULT_SCENE	27		// linked voronoi fracture
-//#define DEFAULT_SCENE	28		// skin peel voronoi fracture
+//#define DEFAULT_SCENE	18		// cart pole controller player
+#define DEFAULT_SCENE	19		// cart pole controller trainer
+//#define DEFAULT_SCENE	20		// unit cycle controller
+//#define DEFAULT_SCENE	21		// quadruped test 1
+//#define DEFAULT_SCENE	22		// quadruped test 2
+//#define DEFAULT_SCENE	23		// quadruped test 3
+//#define DEFAULT_SCENE	24		// biped test 1
+//#define DEFAULT_SCENE	25		// biped test 2
+//#define DEFAULT_SCENE	26		// train biped test 2
+//#define DEFAULT_SCENE	27		// simple voronoi fracture
+//#define DEFAULT_SCENE	28		// basic voronoi fracture
+//#define DEFAULT_SCENE	29		// linked voronoi fracture
+//#define DEFAULT_SCENE	30		// skin peel voronoi fracture
 						 
 // demos forward declaration 
 void ndRagdollTest(ndDemoEntityManager* const scene);
@@ -78,10 +79,10 @@ void ndHeavyVehicle(ndDemoEntityManager* const scene);
 void ndBasicTrigger(ndDemoEntityManager* const scene);
 void ndBasicGpuTest0(ndDemoEntityManager* const scene);
 void ndBasicRigidBody(ndDemoEntityManager* const scene);
-void ndZeroMomentPoint(ndDemoEntityManager* const scene);
 void ndQuadrupedTest_1(ndDemoEntityManager* const scene);
 void ndQuadrupedTest_2(ndDemoEntityManager* const scene);
 void ndQuadrupedTest_3(ndDemoEntityManager* const scene);
+void ndBalanceController(ndDemoEntityManager* const scene);
 void ndBasicGpuRigidBody(ndDemoEntityManager* const scene);
 void ndBasicFrictionRamp(ndDemoEntityManager* const scene);
 void ndPlayerCapsuleDemo(ndDemoEntityManager* const scene);
@@ -93,6 +94,10 @@ void ndSimpleIndustrialRobot(ndDemoEntityManager* const scene);
 void ndBasicCompoundShapeDemo(ndDemoEntityManager* const scene);
 void ndAdvancedIndustrialRobot(ndDemoEntityManager* const scene);
 void ndBasicExplodeConvexShape(ndDemoEntityManager* const scene);
+
+void ndCartpoleControllerPlayer(ndDemoEntityManager* const scene);
+void ndCartpoleControllerTrainer(ndDemoEntityManager* const scene);
+
 //void ndBasicFracture_0(ndDemoEntityManager* const scene);
 //void ndBasicFracture_2(ndDemoEntityManager* const scene);
 //void ndBasicFracture_4(ndDemoEntityManager* const scene);
@@ -119,7 +124,9 @@ ndDemoEntityManager::SDKDemos ndDemoEntityManager::m_demosSelection[] =
 	{ "advanced industrial robot", ndAdvancedIndustrialRobot },
 	{ "basic player", ndPlayerCapsuleDemo },
 	{ "rag doll", ndRagdollTest },
-	{ "zero moment point", ndZeroMomentPoint },
+	{ "carpole controller player", ndCartpoleControllerPlayer },
+	{ "carpole controller trainer", ndCartpoleControllerTrainer },
+	{ "balance controller", ndBalanceController },
 	{ "quadruped test one", ndQuadrupedTest_1 },
 	{ "quadruped test two", ndQuadrupedTest_2 },
 	{ "quadruped test three", ndQuadrupedTest_3},
@@ -243,7 +250,7 @@ class ndDemoEntityManager::ndDemoEntityManager::ndDebugMeshCache : public ndTree
 
 // ImGui - standalone example application for Glfw + OpenGL 2, using fixed pipeline
 // If you are new to ImGui, see examples/README.txt and documentation at the top of imgui.cpp.
-ndDemoEntityManager::ndDemoEntityManager ()
+ndDemoEntityManager::ndDemoEntityManager()
 	:m_mainFrame(nullptr)
 	,m_defaultFont(0)
 	,m_sky(nullptr)
@@ -374,7 +381,7 @@ ndDemoEntityManager::ndDemoEntityManager ()
 	glfwSetWindowUserPointer(m_mainFrame, this);
 
 	#if defined (_DEBUG)
-	glDebugMessageCallback((GLDEBUGPROC)OpenMessageCallback, m_mainFrame);
+	glDebugMessageCallback(OpenMessageCallback, m_mainFrame);
 	glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
 	glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
 	#endif
@@ -426,11 +433,12 @@ ndDemoEntityManager::ndDemoEntityManager ()
 	//m_hideVisualMeshes = true;
 	//m_showScene = true;
 	//m_showConcaveEdge = true;
-	//m_autoSleepMode = false;
-	m_solverMode = ndWorld::ndCudaSolver;
+	//m_showMeshSkeleton = true;
+	m_autoSleepMode = false;
+	//m_solverMode = ndWorld::ndCudaSolver;
 	//m_solverMode = ndWorld::ndSimdSoaSolver;
 	//m_solverMode = ndWorld::ndSyclSolverCpu;
-	//m_solverMode = ndWorld::ndStandardSolver;
+	m_solverMode = ndWorld::ndStandardSolver;
 	//m_solverMode = ndWorld::ndSimdAvx2Solver;
 	//m_solverPasses = 4;
 	m_workerThreads = 1;
@@ -512,7 +520,7 @@ ndDemoEntityManager::~ndDemoEntityManager ()
 }
 
 #ifdef _DEBUG
-void ndDemoEntityManager::OpenMessageCallback(GLenum source,
+void APIENTRY ndDemoEntityManager::OpenMessageCallback(GLenum source,
 	GLenum type,
 	GLuint id,
 	GLenum severity,
@@ -533,6 +541,24 @@ void ndDemoEntityManager::OpenMessageCallback(GLenum source,
 	}
 }
 #endif
+
+ndInt32 ndDemoEntityManager::GetWidth() const
+{
+	//ImGuiIO& io = ImGui::GetIO();
+	//return (ndInt32)(io.DisplaySize.x * io.DisplayFramebufferScale.x);
+	ndInt32 w, h;
+	glfwGetWindowSize(m_mainFrame, &w, &h);
+	return w;
+}
+
+ndInt32 ndDemoEntityManager::GetHeight() const
+{
+	//ImGuiIO& io = ImGui::GetIO();
+	//return (ndInt32)(io.DisplaySize.y * io.DisplayFramebufferScale.y);
+	ndInt32 w, h;
+	glfwGetWindowSize(m_mainFrame, &w, &h);
+	return h;
+}
 
 ndDemoCamera* ndDemoEntityManager::GetCamera() const
 {
@@ -557,12 +583,12 @@ bool ndDemoEntityManager::GetKeyState(ndInt32 key) const
 	return state;
 }
 
-ndAnimationSequence* ndDemoEntityManager::GetAnimationSequence(const char* const fileName)
+ndSharedPtr<ndAnimationSequence> ndDemoEntityManager::GetAnimationSequence(ndMeshLoader& loader, const char* const fileName)
 {
-	ndTree<ndAnimationSequence*, ndString>::ndNode* node = m_animationCache.Find(fileName);
+	ndTree<ndSharedPtr<ndAnimationSequence>, ndString>::ndNode* node = m_animationCache.Find(fileName);
 	if (!node)
 	{
-		ndAnimationSequence* const sequence = LoadFbxAnimation(fileName);
+		ndAnimationSequence* const sequence = loader.LoadAnimation(fileName);
 		if (sequence)
 		{
 			node = m_animationCache.Insert(sequence, fileName);
@@ -620,52 +646,58 @@ bool ndDemoEntityManager::JoystickDetected() const
 
 void ndDemoEntityManager::GetJoystickAxis (ndFixSizeArray<ndFloat32, 8>& axisValues)
 {
-	ndAssert(JoystickDetected());
-	ndInt32 axisCount = 0;
-	axisValues.SetCount(0);
-	const float* const axis = glfwGetJoystickAxes(0, &axisCount);
-	axisCount = ndMin (axisCount, axisValues.GetCapacity());
-	for (ndInt32 i = 0; i < axisCount; ++i) 
+	//ndAssert(JoystickDetected());
+	if (JoystickDetected())
 	{
-		axisValues.PushBack(axis[i]);
-	}
+		ndInt32 axisCount = 0;
+		axisValues.SetCount(0);
+		const float* const axis = glfwGetJoystickAxes(0, &axisCount);
+		axisCount = ndMin(axisCount, axisValues.GetCapacity());
+		for (ndInt32 i = 0; i < axisCount; ++i)
+		{
+			axisValues.PushBack(axis[i]);
+		}
 
-#ifdef ENABLE_REPLAY
-	#ifdef REPLAY_RECORD
-		fwrite(&axisCount, sizeof(axisCount), 1, m_replayLogFile);
-		fwrite(&axisValues[0], sizeof(ndFloat32) * axisValues.GetCapacity(), 1, m_replayLogFile);
-		fflush(m_replayLogFile);
-	#else 
-		fread(&axisCount, sizeof(axisCount), 1, m_replayLogFile);
-		fread(&axisValues[0], sizeof(ndFloat32) * axisValues.GetCapacity(), 1, m_replayLogFile);
-	#endif
-#endif
+		#ifdef ENABLE_REPLAY
+			#ifdef REPLAY_RECORD
+					fwrite(&axisCount, sizeof(axisCount), 1, m_replayLogFile);
+					fwrite(&axisValues[0], sizeof(ndFloat32) * axisValues.GetCapacity(), 1, m_replayLogFile);
+					fflush(m_replayLogFile);
+			#else 
+					fread(&axisCount, sizeof(axisCount), 1, m_replayLogFile);
+					fread(&axisValues[0], sizeof(ndFloat32) * axisValues.GetCapacity(), 1, m_replayLogFile);
+			#endif
+		#endif
+	}
 }
 
 void ndDemoEntityManager::GetJoystickButtons(ndFixSizeArray<char, 32>& axisbuttons)
 {
-	ndAssert(JoystickDetected());
-	ndInt32 buttonsCount = 0;
-	axisbuttons.SetCount(0);
-	const unsigned char* const buttons = glfwGetJoystickButtons(0, &buttonsCount);
-	buttonsCount = ndMin (buttonsCount, axisbuttons.GetCapacity());
-
-	for (ndInt32 i = 0; i < buttonsCount; ++i) 
+	//ndAssert(JoystickDetected());
+	if (JoystickDetected())
 	{
-		axisbuttons.PushBack(char(buttons[i]));
-		//if (buttons[i]) ndTrace(("%d %d\n", i, buttons[i]));
-	}
+		ndInt32 buttonsCount = 0;
+		axisbuttons.SetCount(0);
+		const unsigned char* const buttons = glfwGetJoystickButtons(0, &buttonsCount);
+		buttonsCount = ndMin(buttonsCount, axisbuttons.GetCapacity());
 
-#ifdef ENABLE_REPLAY
-	#ifdef REPLAY_RECORD
-		fwrite(&buttonsCount, sizeof(buttonsCount), 1, m_replayLogFile);
-		fwrite(&axisbuttons[0], sizeof(axisbuttons.GetCapacity()), 1, m_replayLogFile);
-		fflush(m_replayLogFile);
-	#else 
-		fread(&buttonsCount, sizeof(buttonsCount), 1, m_replayLogFile);
-		fread(&axisbuttons[0], sizeof(axisbuttons.GetCapacity()), 1, m_replayLogFile);
-	#endif
-#endif
+		for (ndInt32 i = 0; i < buttonsCount; ++i)
+		{
+			axisbuttons.PushBack(char(buttons[i]));
+			//if (buttons[i]) ndTrace(("%d %d\n", i, buttons[i]));
+		}
+
+		#ifdef ENABLE_REPLAY
+			#ifdef REPLAY_RECORD
+					fwrite(&buttonsCount, sizeof(buttonsCount), 1, m_replayLogFile);
+					fwrite(&axisbuttons[0], sizeof(axisbuttons.GetCapacity()), 1, m_replayLogFile);
+					fflush(m_replayLogFile);
+			#else 
+					fread(&buttonsCount, sizeof(buttonsCount), 1, m_replayLogFile);
+					fread(&axisbuttons[0], sizeof(axisbuttons.GetCapacity()), 1, m_replayLogFile);
+			#endif
+		#endif
+	}
 }
 
 void ndDemoEntityManager::ResetTimer()
@@ -696,11 +728,11 @@ void ndDemoEntityManager::Cleanup ()
 		m_world->Sync();
 	}
 	
-	ndTree<ndAnimationSequence*, ndString>::Iterator iter(m_animationCache);
-	for (iter.Begin(); iter; iter++)
-	{
-		delete *iter;
-	}
+	//ndTree<ndAnimationSequence*, ndString>::Iterator iter(m_animationCache);
+	//for (iter.Begin(); iter; iter++)
+	//{
+	//	delete *iter;
+	//}
 	m_animationCache.RemoveAll();
 	
 	while (m_debugShapeCache->GetRoot())
@@ -771,7 +803,7 @@ void ndDemoEntityManager::LoadFont()
 	//char* const name = "calibri.ttf";
 	//char* const name = "courbd.ttf";
 
-	dGetWorkingFileName (name, pathName);
+	ndGetWorkingFileName (name, pathName);
     io.Fonts->AddFontFromFileTTF(pathName, pixedSize);
     //io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, nullptr, io.Fonts->GetGlyphRangesJapanese());
 
@@ -963,10 +995,12 @@ void ndDemoEntityManager::ShowMainMenuBar()
 		case m_new:
 		{
 			// menu new 
+			ndMatrix matrix (GetCamera()->GetCurrentMatrix());
 			Cleanup();
 			ApplyMenuOptions();
 			ResetTimer();
 			m_currentScene = -1;
+			SetCameraMatrix(ndQuaternion(matrix), matrix.m_posit);
 			break;
 		}
 
@@ -976,8 +1010,9 @@ void ndDemoEntityManager::ShowMainMenuBar()
 			char fileName[1024];
 			if (dGetLoadNdFileName(fileName, 1024))
 			{
-				ndAssert(0);
-				//m_world->LoadScene(fileName);
+				ndFileFormatLoad fileLoad;
+				fileLoad.Load(fileName);
+				fileLoad.AddToWorld(m_world);
 			}
 			break;
 		}
@@ -988,8 +1023,8 @@ void ndDemoEntityManager::ShowMainMenuBar()
 			char fileName[1024];
 			if (dGetSaveNdFileName(fileName, 1024))
 			{
-				ndAssert(0);
-				//m_world->SaveScene(fileName);
+				ndFileFormatSave fileSave;
+				fileSave.SaveWorld(m_world, fileName);
 			}
 			break;
 		}
@@ -1082,8 +1117,8 @@ bool ndDemoEntityManager::GetMouseSpeed(ndFloat32& speedX, ndFloat32& speedY) co
 bool ndDemoEntityManager::GetMousePosition (ndFloat32& posX, ndFloat32& posY) const
 {
 	ImVec2 posit(ImGui::GetMousePos());
-	posX = posit.x;
-	posY = posit.y;
+	posX = ndClamp(posit.x, ndReal(-1.0e10f), ndReal(1.0e10f));
+	posY = ndClamp(posit.y, ndReal(-1.0e10f), ndReal(1.0e10f));
 	return true;
 }
 
@@ -1092,7 +1127,6 @@ void ndDemoEntityManager::CharCallback(GLFWwindow*, ndUnsigned32 ch)
 	ImGuiIO& io = ImGui::GetIO();
 	io.AddInputCharacter((unsigned short)ch);
 }
-
 
 void ndDemoEntityManager::KeyCallback(GLFWwindow* const window, ndInt32 key, ndInt32, ndInt32 action, ndInt32 mods)
 {
@@ -1347,7 +1381,6 @@ ndFloat32 ndDemoEntityManager::CalculateInteplationParam () const
 	return param;
 }
 
-
 void ndDemoEntityManager::RenderScene(ImDrawData* const draw_data)
 {
 	// Avoid rendering when minimized, scale coordinates for retina displays (screen coordinates != framebuffer coordinates)
@@ -1525,6 +1558,11 @@ void ndDemoEntityManager::DrawDebugShapes()
 	}
 	
 	RenderParticles(this);
+}
+
+void ndDemoEntityManager::SetAcceleratedUpdate()
+{
+	m_world->AccelerateUpdates();
 }
 
 void ndDemoEntityManager::RenderScene()

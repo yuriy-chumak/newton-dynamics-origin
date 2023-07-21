@@ -20,12 +20,13 @@
 */
 
 #include "ndBrainStdafx.h"
+#include "ndBrain.h"
 #include "ndBrainAgent.h"
+#include "ndBrainSaveLoad.h"
 
-ndBrainAgent::ndBrainAgent(ndBrain* const agent)
-	:m_network(agent)
-	,m_replayBuffer()
-	,m_exploration(1.0f)
+ndBrainAgent::ndBrainAgent()
+	:ndClassAlloc()
+	,m_name()
 {
 }
 
@@ -33,7 +34,36 @@ ndBrainAgent::~ndBrainAgent()
 {
 }
 
-void ndBrainAgent::PredictAccion(ndBrainReiforcementTransition& transition)
+void ndBrainAgent::SaveToFile(const char* const pathFilename) const
 {
-	m_network.MakePrediction(transition.m_state, transition.m_action);
+	class SaveAgent: public ndBrainSave
+	{
+		public:
+		SaveAgent(const char* const pathFilename)
+			:ndBrainSave()
+		{
+			m_file = fopen(pathFilename, "wb");
+			ndAssert(m_file);
+		}
+
+		~SaveAgent()
+		{
+			if (m_file)
+			{
+				fclose(m_file);
+			}
+		}
+
+		void WriteData(const char* const data) const
+		{
+			fprintf(m_file, data);
+		}
+
+		FILE* m_file;
+	};
+
+	SaveAgent saveAgent(pathFilename);
+	Save(&saveAgent);
 }
+
+

@@ -25,39 +25,6 @@
 #include "ndQuaternion.h"
 #include "ndGeneralMatrix.h"
 
-ndMatrix::ndMatrix (const ndQuaternion &quat, const ndVector &position)
-{
-	ndAssert((quat.DotProduct(quat).GetScalar() - ndFloat32(1.0f)) < ndFloat32(1.0e-4f));
-	const ndQuaternion quat0(quat);
-	const ndQuaternion quat1(quat0.Scale (ndFloat32(2.0f)));
-
-	const ndFloat32 x2 = quat0.m_x * quat1.m_x;
-	const ndFloat32 y2 = quat0.m_y * quat1.m_y;
-	const ndFloat32 z2 = quat0.m_z * quat1.m_z;
-
-#ifdef _DEBUG
-	ndFloat32 w2 = quat0.m_w * quat1.m_w;
-	ndAssert (ndAbs (w2 + x2 + y2 + z2 - ndFloat32(2.0f)) <ndFloat32 (1.0e-3f));
-#endif
-
-	const ndFloat32 xy = quat0.m_x * quat1.m_y;
-	const ndFloat32 xz = quat0.m_x * quat1.m_z;
-	const ndFloat32 xw = quat0.m_x * quat1.m_w;
-	const ndFloat32 yz = quat0.m_y * quat1.m_z;
-	const ndFloat32 yw = quat0.m_y * quat1.m_w;
-	const ndFloat32 zw = quat0.m_z * quat1.m_w;
-
-	m_front = ndVector (ndFloat32(1.0f) - y2 - z2, xy + zw, xz - yw, ndFloat32(0.0f));
-	m_up    = ndVector (xy - zw, ndFloat32(1.0f) - x2 - z2, yz + xw, ndFloat32(0.0f));
-	m_right = ndVector (xz + yw, yz - xw, ndFloat32(1.0f) - x2 - y2, ndFloat32(0.0f));
-
-	m_posit = position;
-	//m_posit.m_x = position.m_x;
-	//m_posit.m_y = position.m_y;
-	//m_posit.m_z = position.m_z;
-	//m_posit.m_w = ndFloat32(1.0f);
-}
-
 ndMatrix::ndMatrix (const ndMatrix& transformMatrix, const ndVector& scale, const ndMatrix& stretchAxis)
 {
 	const ndMatrix scaledAxis(
@@ -65,7 +32,7 @@ ndMatrix::ndMatrix (const ndMatrix& transformMatrix, const ndVector& scale, cons
 		stretchAxis[1].Scale(scale[1]),
 		stretchAxis[2].Scale(scale[2]),
 		stretchAxis[3]);
-	*this = stretchAxis.Transpose() * scaledAxis * transformMatrix;
+	*this = stretchAxis.Transpose3x3() * scaledAxis * transformMatrix;
 }
 
 ndMatrix ndMatrix::Multiply3X3 (const ndMatrix &B) const
@@ -152,8 +119,8 @@ void ndMatrix::TransformBBox (const ndVector& p0local, const ndVector& p1local, 
 	ndVector size ((p1local - p0local) * ndVector::m_half);
 	ndVector center (TransformVector ((p1local + p0local) * ndVector::m_half));
 	ndVector extends (size.m_x * ndAbs(matrix[0][0]) + size.m_y * ndAbs(matrix[1][0]) + size.m_z * ndAbs(matrix[2][0]),  
-					 size.m_x * ndAbs(matrix[0][1]) + size.m_y * ndAbs(matrix[1][1]) + size.m_z * ndAbs(matrix[2][1]),  
-	                 size.m_x * ndAbs(matrix[0][2]) + size.m_y * ndAbs(matrix[1][2]) + size.m_z * ndAbs(matrix[2][2]), ndFloat32 (0.0f));  
+					  size.m_x * ndAbs(matrix[0][1]) + size.m_y * ndAbs(matrix[1][1]) + size.m_z * ndAbs(matrix[2][1]),  
+	                  size.m_x * ndAbs(matrix[0][2]) + size.m_y * ndAbs(matrix[1][2]) + size.m_z * ndAbs(matrix[2][2]), ndFloat32 (0.0f));  
 
 	p0 = center - extends;
 	p1 = center + extends;
@@ -271,11 +238,14 @@ ndVector ndMatrix::SolveByGaussianElimination(const ndVector &v) const
 	return ret;
 }
 
-void ndMatrix::CalcPitchYawRoll (ndVector& euler0, ndVector& euler1) const
+ndVector ndMatrix::CalcPitchYawRoll (ndVector& euler1) const
 {
 	const ndMatrix& matrix = *this;
 	ndAssert (matrix[2].DotProduct(matrix[0].CrossProduct(matrix[1])).GetScalar() > 0.0f);
 	ndAssert (ndAbs (matrix[2].DotProduct(matrix[0].CrossProduct(matrix[1])).GetScalar() - ndFloat32 (1.0f)) < ndFloat32 (1.0e-4f));
+
+	euler1 = ndVector::m_zero;
+	ndVector euler0(ndVector::m_zero);
 
 	// Assuming the angles are in radians.
 	if (matrix[0][2] > ndFloat32 (0.99995f)) 
@@ -291,8 +261,6 @@ void ndMatrix::CalcPitchYawRoll (ndVector& euler0, ndVector& euler1) const
 		euler1[0] = picth0;
 		euler1[1] = yaw0;
 		euler1[2] = roll0;
-		//ndMatrix xxxx(ndPitchMatrix(picth0) * ndYawMatrix(yaw0) * ndRollMatrix(roll0));
-		//ndMatrix xxxx1(ndPitchMatrix(picth0) * ndYawMatrix(yaw0) * ndRollMatrix(roll0));
 	} 
 	else if (matrix[0][2] < ndFloat32 (-0.99995f)) 
 	{
@@ -306,8 +274,6 @@ void ndMatrix::CalcPitchYawRoll (ndVector& euler0, ndVector& euler1) const
 		euler1[0] = picth0;
 		euler1[1] = yaw0;
 		euler1[2] = roll0;
-		//ndMatrix xxxx(ndPitchMatrix(picth0) * ndYawMatrix(yaw0) * ndRollMatrix(roll0));
-		//ndMatrix xxxx1(ndPitchMatrix(picth0) * ndYawMatrix(yaw0) * ndRollMatrix(roll0));
 	} 
 	else 
 	{
@@ -351,6 +317,7 @@ void ndMatrix::CalcPitchYawRoll (ndVector& euler0, ndVector& euler1) const
 		}
 	}
 #endif
+	return euler0;
 }
 
 void ndMatrix::PolarDecomposition (ndMatrix& transformMatrix, ndVector& scale, ndMatrix& stretchAxis) const
@@ -360,7 +327,7 @@ void ndMatrix::PolarDecomposition (ndMatrix& transformMatrix, ndVector& scale, n
 
 	const ndMatrix& me = *this;
 	ndFloat32 sign = ndSign (me[2].DotProduct(me[0].CrossProduct(me[1])).GetScalar());
-	stretchAxis = me * Transpose();
+	stretchAxis = me * Transpose3x3();
 	scale = stretchAxis.EigenVectors();
 
 	// I need to deal with by seeing of some of the Scale are duplicated
@@ -377,7 +344,7 @@ void ndMatrix::PolarDecomposition (ndMatrix& transformMatrix, ndVector& scale, n
 	scaledAxis[1] = stretchAxis[1].Scale (ndFloat32 (1.0f) / scale[1]);
 	scaledAxis[2] = stretchAxis[2].Scale (ndFloat32 (1.0f) / scale[2]);
 	scaledAxis[3] = stretchAxis[3];
-	ndMatrix symetricInv (stretchAxis.Transpose() * scaledAxis);
+	ndMatrix symetricInv (stretchAxis.Transpose3x3() * scaledAxis);
 
 	transformMatrix = symetricInv * (*this);
 	transformMatrix.m_posit = m_posit;
@@ -507,19 +474,16 @@ ndVector ndMatrix::EigenVectors ()
 		d = b; 
 	}
 
-#ifdef _DEBUG_____
+#ifdef _DEBUG___
 		ndMatrix diag(ndGetIdentityMatrix());
 		diag[0][0] = d[0];
 		diag[1][1] = d[1];
 		diag[2][2] = d[2];
-		ndMatrix E(eigenVectors.Transpose());
+		ndMatrix E(eigenVectors.Transpose3x3());
 		ndMatrix originalMatrix(*this);
-		ndMatrix tempMatrix(E * diag * E.Transpose());
+		ndMatrix tempMatrix(E * diag * E.Transpose3x3());
 		tempMatrix = tempMatrix.Inverse4x4();
 		ndMatrix unitMatrix(tempMatrix* originalMatrix);
-
-
-
 
 		for (ndInt32 j = 0; j < 3; ++j) 
 		{
@@ -542,7 +506,7 @@ const ndMatrix& ndGetIdentityMatrix()
 		ndVector(ndFloat32(1.0f), ndFloat32(0.0f), ndFloat32(0.0f), ndFloat32(0.0f)),
 		ndVector(ndFloat32(0.0f), ndFloat32(1.0f), ndFloat32(0.0f), ndFloat32(0.0f)),
 		ndVector(ndFloat32(0.0f), ndFloat32(0.0f), ndFloat32(1.0f), ndFloat32(0.0f)),
-		ndVector(ndFloat32(0.0f), ndFloat32(0.0f), ndFloat32(0.0f), ndFloat32(1.0f)));
+		ndVector::m_wOne);
 	return identityMatrix;
 }
 
@@ -560,7 +524,7 @@ ndMatrix ndPitchMatrix(ndFloat32 ang)
 		ndVector(ndFloat32(1.0f), ndFloat32(0.0f), ndFloat32(0.0f), ndFloat32(0.0f)),
 		ndVector(ndFloat32(0.0f), cosAng, sinAng, ndFloat32(0.0f)),
 		ndVector(ndFloat32(0.0f), -sinAng, cosAng, ndFloat32(0.0f)),
-		ndVector(ndFloat32(0.0f), ndFloat32(0.0f), ndFloat32(0.0f), ndFloat32(1.0f)));
+		ndVector::m_wOne);
 }
 
 ndMatrix ndYawMatrix(ndFloat32 ang)
@@ -571,7 +535,7 @@ ndMatrix ndYawMatrix(ndFloat32 ang)
 		ndVector(cosAng, ndFloat32(0.0f), -sinAng, ndFloat32(0.0f)),
 		ndVector(ndFloat32(0.0f), ndFloat32(1.0f), ndFloat32(0.0f), ndFloat32(0.0f)),
 		ndVector(sinAng, ndFloat32(0.0f), cosAng, ndFloat32(0.0f)),
-		ndVector(ndFloat32(0.0f), ndFloat32(0.0f), ndFloat32(0.0f), ndFloat32(1.0f)));
+		ndVector::m_wOne);
 }
 
 ndMatrix ndRollMatrix(ndFloat32 ang)
@@ -581,6 +545,59 @@ ndMatrix ndRollMatrix(ndFloat32 ang)
 	return ndMatrix(ndVector(cosAng, sinAng, ndFloat32(0.0f), ndFloat32(0.0f)),
 		ndVector(-sinAng, cosAng, ndFloat32(0.0f), ndFloat32(0.0f)),
 		ndVector(ndFloat32(0.0f), ndFloat32(0.0f), ndFloat32(1.0f), ndFloat32(0.0f)),
-		ndVector(ndFloat32(0.0f), ndFloat32(0.0f), ndFloat32(0.0f), ndFloat32(1.0f)));
+		ndVector::m_wOne);
 }
 
+ndMatrix ndCalculateMatrix(const ndQuaternion& quat, const ndVector& position)
+{
+	ndAssert((quat.DotProduct(quat).GetScalar() - ndFloat32(1.0f)) < ndFloat32(1.0e-4f));
+	const ndQuaternion quat0(quat);
+	const ndQuaternion quat1(quat0.Scale(ndFloat32(2.0f)));
+
+	const ndFloat32 x2 = quat0.m_x * quat1.m_x;
+	const ndFloat32 y2 = quat0.m_y * quat1.m_y;
+	const ndFloat32 z2 = quat0.m_z * quat1.m_z;
+
+#ifdef _DEBUG
+	ndFloat32 w2 = quat0.m_w * quat1.m_w;
+	ndAssert(ndAbs(w2 + x2 + y2 + z2 - ndFloat32(2.0f)) < ndFloat32(1.0e-3f));
+#endif
+
+	const ndFloat32 xy = quat0.m_x * quat1.m_y;
+	const ndFloat32 xz = quat0.m_x * quat1.m_z;
+	const ndFloat32 xw = quat0.m_x * quat1.m_w;
+	const ndFloat32 yz = quat0.m_y * quat1.m_z;
+	const ndFloat32 yw = quat0.m_y * quat1.m_w;
+	const ndFloat32 zw = quat0.m_z * quat1.m_w;
+
+	ndVector front(ndFloat32(1.0f) - y2 - z2, xy + zw, xz - yw, ndFloat32(0.0f));
+	ndVector up(xy - zw, ndFloat32(1.0f) - x2 - z2, yz + xw, ndFloat32(0.0f));
+	ndVector right(xz + yw, yz - xw, ndFloat32(1.0f) - x2 - y2, ndFloat32(0.0f));
+	//ndVector posit (position);
+	return ndMatrix(front, up, right, position);
+}
+
+ndMatrix ndCovarianceMatrix(const ndVector& p, const ndVector& q)
+{
+	return ndMatrix(q * p.BroadcastX(), q * p.BroadcastY(), q * p.BroadcastZ(), ndVector::m_wOne);
+}
+
+ndMatrix ndGramSchmidtMatrix(const ndVector& dir)
+{
+	ndVector right;
+	ndVector front((dir & ndVector::m_triplexMask).Normalize());
+	
+	if (ndAbs(front.m_z) > ndFloat32(0.577f))
+	{
+		right = front.CrossProduct(ndVector(-front.m_y, front.m_z, ndFloat32(0.0f), ndFloat32(0.0f)));
+	}
+	else
+	{
+		right = front.CrossProduct(ndVector(-front.m_y, front.m_x, ndFloat32(0.0f), ndFloat32(0.0f)));
+	}
+	right = right.Normalize();
+	ndVector up (right.CrossProduct(front));
+
+	ndAssert(ndMatrix(front, up, right, ndVector::m_wOne).TestOrthogonal());
+	return ndMatrix(front, up, right, ndVector::m_wOne);
+}

@@ -13,17 +13,38 @@
 #include "ndNewtonStdafx.h"
 #include "ndIk6DofEffector.h"
 
-ndIk6DofEffector::ndIk6DofEffector(const ndMatrix& pinAndPivotChild, const ndMatrix& pinAndPivotParent, ndBodyKinematic* const child, ndBodyKinematic* const parent)
-	:ndJointBilateralConstraint(6, child, parent, pinAndPivotChild, pinAndPivotParent)
-	,m_targetFrame(pinAndPivotChild * pinAndPivotParent.Inverse())
+ndIk6DofEffector::ndIk6DofEffector()
+	:ndJointBilateralConstraint()
+	,m_targetFrame(ndGetIdentityMatrix())
 	,m_angularSpring(ndFloat32(1000.0f))
 	,m_angularDamper(ndFloat32(50.0f))
 	,m_angularMaxTorque(D_LCP_MAX_VALUE)
 	,m_angularRegularizer(ndFloat32(5.0e-3f))
+	,m_angularMaxSpringRamp(ndFloat32(1.0e10f))
 	,m_linearSpring(ndFloat32(1000.0f))
 	,m_linearDamper(ndFloat32(50.0f))
 	,m_linearMaxForce(D_LCP_MAX_VALUE)
 	,m_linearRegularizer(ndFloat32(5.0e-3f))
+	,m_linearMaxSpringRamp(ndFloat32(1.0e10f))
+	,m_rotationType(m_disabled)
+	,m_controlDofOptions(0xff)
+{
+	m_maxDof = 6;
+}
+
+ndIk6DofEffector::ndIk6DofEffector(const ndMatrix& pinAndPivotChild, const ndMatrix& pinAndPivotParent, ndBodyKinematic* const child, ndBodyKinematic* const parent)
+	:ndJointBilateralConstraint(6, child, parent, pinAndPivotChild, pinAndPivotParent)
+	,m_targetFrame(pinAndPivotChild * pinAndPivotParent.OrthoInverse())
+	,m_angularSpring(ndFloat32(1000.0f))
+	,m_angularDamper(ndFloat32(50.0f))
+	,m_angularMaxTorque(D_LCP_MAX_VALUE)
+	,m_angularRegularizer(ndFloat32(5.0e-3f))
+	,m_angularMaxSpringRamp(ndFloat32(1.0e10f))
+	,m_linearSpring(ndFloat32(1000.0f))
+	,m_linearDamper(ndFloat32(50.0f))
+	,m_linearMaxForce(D_LCP_MAX_VALUE)
+	,m_linearRegularizer(ndFloat32(5.0e-3f))
+	,m_linearMaxSpringRamp(ndFloat32(1.0e10f))
 	,m_rotationType(m_disabled)
 	,m_controlDofOptions(0xff)
 {
@@ -49,9 +70,29 @@ void ndIk6DofEffector::EnableAxisZ(bool state)
 	m_axisZ = ndUnsigned8(state ? 1 : 0);
 }
 
+bool ndIk6DofEffector::GetAxisX() const
+{
+	return m_axisX ? true : false;
+}
+
+bool ndIk6DofEffector::GetAxisY() const
+{
+	return m_axisY ? true : false;
+}
+
+bool ndIk6DofEffector::GetAxisZ() const
+{
+	return m_axisZ ? true : false;
+}
+
 void ndIk6DofEffector::EnableRotationAxis(ndRotationType type)
 {
 	m_rotationType = type;
+}
+
+ndIk6DofEffector::ndRotationType ndIk6DofEffector::GetRotationAxis() const
+{
+	return m_rotationType;
 }
 
 ndMatrix ndIk6DofEffector::GetOffsetMatrix() const
@@ -126,13 +167,13 @@ void ndIk6DofEffector::DebugJoint(ndConstraintDebugCallback& debugCallback) cons
 
 void ndIk6DofEffector::SubmitShortestPathAxis(const ndMatrix& matrix0, const ndMatrix& matrix1, ndConstraintDescritor& desc)
 {
-	const ndQuaternion rotation(matrix0.Inverse() * matrix1);
+	const ndQuaternion rotation(matrix0.OrthoInverse() * matrix1);
 	const ndVector pin(rotation & ndVector::m_triplexMask);
 	const ndFloat32 dirMag2 = pin.DotProduct(pin).GetScalar();
 	const ndFloat32 tol = ndFloat32(3.0f * ndPi / 180.0f);
 	if (dirMag2 > (tol * tol))
 	{
-		const ndMatrix basis(pin);
+		const ndMatrix basis(ndGramSchmidtMatrix(pin));
 		const ndFloat32 dirMag = ndSqrt(dirMag2);
 		const ndFloat32 angle = ndAtan2(dirMag, rotation.m_w);
 		AddAngularRowJacobian(desc, basis[0], angle);
@@ -210,7 +251,14 @@ void ndIk6DofEffector::SubmitLinearAxis(const ndMatrix& matrix0, const ndMatrix&
 		{
 			const ndVector pin = axisDir[i];
 			AddLinearRowJacobian(desc, posit0, posit1, pin);
-			SetMassSpringDamperAcceleration(desc, m_linearRegularizer, m_linearSpring, m_linearDamper*2.0f);
+
+			//m_linearMaxSpringRamp = 0.1f;
+			//ndFloat32 springError = ndClamp (GetJointErrorPosit(desc), -m_linearMaxSpringRamp, m_linearMaxSpringRamp);
+			//SetJointErrorPosit(desc, springError);
+			SetMassSpringDamperAcceleration(desc, m_linearRegularizer, m_linearSpring, m_linearDamper);
+			
+			//ndTrace(("xxxxxxxxxx %f %f\n", springError, GetMotorAcceleration(desc)));
+
 			SetLowerFriction(desc, -m_linearMaxForce);
 			SetHighFriction(desc, m_linearMaxForce);
 		}

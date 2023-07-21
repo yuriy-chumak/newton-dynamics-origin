@@ -24,27 +24,18 @@
 
 #include "ndFileFormatStdafx.h"
 
-
 class ndFileFormat : public ndClassAlloc
 {
 	public: 
 	ndFileFormat();
 	~ndFileFormat();
 
-	void CollectScene(const ndWorld* const world);
+	void SetPath(const char* const pathName);
 
-	void SaveWorld(const char* const path);
-	void SaveBodies(const char* const path);
-	
-	ndString m_fileName;
-	const ndWorld* m_world;
-	ndArray<ndBody*> m_bodies;
-	ndTree<ndInt32, ndUnsigned64> m_uniqueShapes;
-
-	private:
-	void SaveWorld(nd::TiXmlElement* const rootNode);
-	void SaveBodies(nd::TiXmlElement* const rootNode);
-	void SaveCollisionShapes(nd::TiXmlElement* const rootNode);
+	protected:
+	ndString m_path;
+	ndString m_assetPath;
+	ndString m_oldloc;
 };
 
 #endif 

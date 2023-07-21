@@ -20,7 +20,7 @@
 */
 
 #include "ndFileFormatStdafx.h"
-#include "ndFileFormat.h"
+#include "ndFileFormatSave.h"
 #include "ndFileFormatShapeStaticMesh_bvh.h"
 
 ndFileFormatShapeStaticMesh_bvh::ndFileFormatShapeStaticMesh_bvh()
@@ -33,21 +33,29 @@ ndFileFormatShapeStaticMesh_bvh::ndFileFormatShapeStaticMesh_bvh(const char* con
 {
 }
 
-ndInt32 ndFileFormatShapeStaticMesh_bvh::SaveShape(ndFileFormat* const scene, nd::TiXmlElement* const parentNode, const ndShape* const shape)
+ndInt32 ndFileFormatShapeStaticMesh_bvh::SaveShape(ndFileFormatSave* const scene, nd::TiXmlElement* const parentNode, const ndShape* const shape)
 {
-	nd::TiXmlElement* const classNode = xmlCreateClassNode(parentNode, "ndShape", ndShapeStatic_bvh::StaticClassName());
+	nd::TiXmlElement* const classNode = xmlCreateClassNode(parentNode, D_SHAPE_CLASS, ndShapeStatic_bvh::StaticClassName());
 	ndFileFormatShapeStaticMesh::SaveShape(scene, classNode, shape);
 
 	char fileName[1024];
+	sprintf(fileName, "%s_%s_%d.bin", scene->m_assetPath.GetStr(), ndShapeStatic_bvh::StaticClassName(), xmlGetNodeId(classNode));
+
 	ndShapeStatic_bvh* const staticMesh = (ndShapeStatic_bvh*)shape;
-	sprintf(fileName, "%s", scene->m_fileName.GetStr());
-	char* const ptr = strrchr(fileName, '.');
-	if (ptr)
-	{
-		ndInt32 nodeId = xmlGetNodeId(classNode);
-		sprintf(ptr, "_%d.bin", nodeId);
-	}
-	xmlSaveParam(classNode, "assetName", "string", fileName);
+	xmlSaveParam(classNode, "assetName", fileName);
+	xmlSaveParam(classNode, "triangleCount", staticMesh->m_trianglesCount);
 	staticMesh->Serialize(fileName);
 	return xmlGetNodeId(classNode);
+}
+
+ndShape* ndFileFormatShapeStaticMesh_bvh::LoadShape(const nd::TiXmlElement* const node, const ndTree<ndShape*, ndInt32>&)
+{
+	const char* const filename = xmlGetString(node, "assetName");
+	ndInt32 triangleCount = xmlGetInt(node, "triangleCount");
+
+	ndShapeStatic_bvh* const staticMesh = new ndShapeStatic_bvh();
+
+	staticMesh->Deserialize(filename);
+	staticMesh->m_trianglesCount = triangleCount;
+	return staticMesh;
 }

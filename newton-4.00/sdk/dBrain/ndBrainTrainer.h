@@ -23,33 +23,38 @@
 #define _ND_BRAIN_TRAINER_H__
 
 #include "ndBrainStdafx.h"
-#include "ndBrainTrainerBase.h"
+#include "ndBrain.h"
+#include "ndBrainTypes.h"
+#include "ndBrainLayer.h"
 
-class ndBrainTrainer: public ndBrainTrainerBase
+class ndBrainTrainer: public ndClassAlloc
 {
 	public: 
+	enum ndSolveModel
+	{
+		m_cgd,
+		m_adam
+	};
+
 	ndBrainTrainer(ndBrain* const brain);
 	ndBrainTrainer(const ndBrainTrainer& src);
 	virtual ~ndBrainTrainer();
 
 	ndReal GetRegularizer() const;
 	void SetRegularizer(ndReal regularizer);
-	virtual void UpdateWeights(ndReal learnRate, ndInt32 batchSize);
-	virtual void MakePrediction(const ndBrainVector& input);
-	virtual void BackPropagate(const ndBrainVector& groundTruth);
-	virtual void Optimize(ndValidation& validator, const ndBrainMatrix& inputBatch, const ndBrainMatrix& groundTruth, ndReal learnRate, ndInt32 steps);
 
-	protected:
 	void ClearGradientsAcc();
-	virtual void PrefixScan();
-	virtual void ApplyWeightTranspose();
-	virtual void BackPropagateHiddenLayer(ndInt32 layerIndex);
-	virtual void BackPropagateCalculateBiasGradient(ndInt32 layerIndex);
-	virtual void BackPropagateOutputLayer(const ndBrainVector& groundTruth);
+	virtual void UpdateWeights(ndReal learnRate, ndInt32 batchSize);
+	void BackPropagate(const ndBrainVector& input, const ndBrainVector& groundTruth);
 
+	private:
+	void PrefixScan();
 	void ApplyAdamCorrection();
-
-	ndBrainVector m_output;
+	void BackPropagateHiddenLayer(ndInt32 layerIndex);
+	void BackPropagateCalculateBiasGradient(ndInt32 layerIndex);
+	void BackPropagateOutputLayer(const ndBrainVector& groundTruth);
+	
+	ndBrainVector m_z;
 	ndBrainVector m_zDerivative;
 	ndBrainVector m_biasGradients;
 	ndBrainVector m_weightGradients;
@@ -58,28 +63,20 @@ class ndBrainTrainer: public ndBrainTrainerBase
 	ndBrainVector m_biasGradient_v;
 	ndBrainVector m_weightGradient_u;
 	ndBrainVector m_weightGradient_v;
-	ndBrainPrefixScan m_weightGradientsPrefixScan;
-	ndArray <ndBrainMatrix*> m_weightsLayersTranspose;
+	ndHidenVariableOffsets m_weightGradientsPrefixScan;
+
+	ndBrain* m_brain;
 	ndReal m_regularizer;
-	ndReal m_bestCost;
 	ndReal m_alpha;
 	ndReal m_beta;
 	ndReal m_epsilon;
 	ndReal m_alphaAcc;
 	ndReal m_betaAcc;
+	ndSolveModel m_model;
+	
 	friend class ndBrainTrainerChannel;
 	friend class ndBrainParallelTrainer;
 };
-
-inline ndReal ndBrainTrainer::GetRegularizer() const
-{
-	return m_regularizer;
-}
-
-inline void ndBrainTrainer::SetRegularizer(ndReal regularizer)
-{
-	m_regularizer = ndClamp(regularizer, ndReal(0.0f), ndReal(0.01f));
-}
 
 #endif 
 

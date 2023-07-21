@@ -34,7 +34,6 @@
 #include <ndModelList.h>
 #include <ndJointGear.h>
 #include <ndJointList.h>
-#include <ndCharacter.h>
 #include <ndWorldScene.h>
 #include <ndConstraint.h>
 #include <ndJointHinge.h>
@@ -53,7 +52,7 @@
 #include <ndBodyKinematic.h>
 #include <ndContactSolver.h>
 #include <ndJointCylinder.h>
-#include <ndCharacterNode.h>
+#include <ndJointUpVector.h>
 #include <ndIk6DofEffector.h>
 #include <ndJointSpherical.h>
 #include <ndDynamicsUpdate.h>
@@ -62,7 +61,7 @@
 #include <ndJointDoubleHinge.h>
 #include <ndJointFixDistance.h>
 #include <ndMultiBodyVehicle.h>
-#include <ndCharacterRootNode.h>
+#include <ndModelArticulation.h>
 #include <ndSkeletonContainer.h>
 #include <ndDynamicsUpdateSoa.h>
 #include <ndIkJointDoubleHinge.h>
@@ -73,8 +72,6 @@
 #include <ndJointKinematicController.h>
 #include <ndMultiBodyVehicleTireJoint.h>
 #include <ndMultiBodyVehicleTorsionBar.h>
-#include <ndCharacterForwardDynamicNode.h>
-#include <ndCharacterInverseDynamicNode.h>
 #include <ndMultiBodyVehicleDifferential.h>
 #include <ndMultiBodyVehicleDifferentialAxle.h>
 

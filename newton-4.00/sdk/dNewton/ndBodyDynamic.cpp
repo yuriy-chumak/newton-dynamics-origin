@@ -24,6 +24,8 @@
 #include "ndWorld.h"
 #include "ndBodyDynamic.h"
 
+ndVector ndBodyDynamic::m_sleepAccelTestScale2(ndFloat32 (0.0625f));
+
 ndBodyDynamic::ndBodyDynamic()
 	:ndBodyKinematic()
 	,m_externalForce(ndVector::m_zero)
@@ -34,6 +36,7 @@ ndBodyDynamic::ndBodyDynamic()
 	,m_savedExternalTorque(ndVector::m_zero)
 	,m_dampCoef(ndVector::m_zero)
 	,m_cachedDampCoef(ndVector::m_one)
+	,m_sleepAccelTest2(D_SOLVER_MAX_ACCEL_ERROR * D_SOLVER_MAX_ACCEL_ERROR)
 	,m_cachedTimeStep(ndFloat32 (0.0f))
 {
 	m_isDynamics = 1;
@@ -245,9 +248,24 @@ void ndBodyDynamic::AddDampingAcceleration(ndFloat32 timestep)
 	}
 
 	const ndVector omegaDamp(m_cachedDampCoef & ndVector::m_triplexMask);
-	const ndVector omega(m_inertiaPrincipalAxis.UnrotateVector(m_matrix.UnrotateVector(m_omega)) * omegaDamp);
+#ifdef D_USE_FULL_INERTIA	
+	const ndVector omega(omegaDamp * m_inertiaPrincipalAxis.UnrotateVector(m_matrix.UnrotateVector(m_omega)));
 	m_omega = m_matrix.RotateVector(m_inertiaPrincipalAxis.RotateVector(omega));
+#else
+	const ndVector omega(m_matrix.UnrotateVector(m_omega) * omegaDamp);
+	m_omega = m_matrix.RotateVector(omega);
+#endif
 	m_veloc = m_veloc.Scale(m_cachedDampCoef.m_w);
+}
+
+ndFloat32 ndBodyDynamic::GetSleepAccel() const
+{
+	return m_sleepAccelTest2.m_x;
+}
+
+void ndBodyDynamic::SetSleepAccel(ndFloat32 accelMag2)
+{
+	m_sleepAccelTest2 = ndVector(accelMag2);
 }
 
 void ndBodyDynamic::IntegrateVelocity(ndFloat32 timestep)
@@ -259,10 +277,16 @@ void ndBodyDynamic::IntegrateVelocity(ndFloat32 timestep)
 ndJacobian ndBodyDynamic::IntegrateForceAndToque(const ndVector& force, const ndVector& torque, const ndVector& timestep) const
 {
 	ndJacobian velocStep;
-	const ndMatrix matrix(m_gyroRotation, ndVector::m_wOne);
+
+	const ndMatrix matrix(ndCalculateMatrix(m_gyroRotation, ndVector::m_wOne));
+#ifdef D_USE_FULL_INERTIA
+	const ndVector localOmega(m_inertiaPrincipalAxis.UnrotateVector(matrix.UnrotateVector(m_omega)));
+	const ndVector localTorque(m_inertiaPrincipalAxis.UnrotateVector(matrix.UnrotateVector(torque)));
+#else
 	const ndVector localOmega(matrix.UnrotateVector(m_omega));
 	const ndVector localTorque(matrix.UnrotateVector(torque));
-	
+#endif
+
 	// derivative at half time step. (similar to midpoint Euler so that it does not loses too much energy)
 	const ndVector dw(localOmega * timestep);
 	const ndMatrix jacobianMatrix(
@@ -275,7 +299,11 @@ ndJacobian ndBodyDynamic::IntegrateForceAndToque(const ndVector& force, const nd
 	// calculate gradient at a full time step
 	const ndVector gradientStep(jacobianMatrix.SolveByGaussianElimination(localTorque * timestep));
 
+#ifdef D_USE_FULL_INERTIA
+	velocStep.m_angular = matrix.RotateVector(m_inertiaPrincipalAxis.RotateVector(gradientStep));
+#else
 	velocStep.m_angular = matrix.RotateVector(gradientStep);
+#endif
 	velocStep.m_linear = force.Scale(m_invMass.m_w) * timestep;
 
 #ifdef _DEBUG
@@ -310,12 +338,19 @@ void ndBodyDynamic::IntegrateGyroSubstep(const ndVector& timestep)
 		ndAssert((m_gyroRotation.DotProduct(m_gyroRotation).GetScalar() - ndFloat32(1.0f)) < ndFloat32(1.0e-5f));
 		
 		// calculate new Gyro torque and Gyro acceleration
-		const ndMatrix matrix(m_gyroRotation, ndVector::m_wOne);
+		const ndMatrix matrix(ndCalculateMatrix(m_gyroRotation, ndVector::m_wOne));
 
+#ifdef D_USE_FULL_INERTIA
+		const ndVector localOmega(m_inertiaPrincipalAxis.UnrotateVector(matrix.UnrotateVector(m_omega)));
+		const ndVector localGyroTorque(localOmega.CrossProduct(m_mass * localOmega));
+		m_gyroTorque = matrix.RotateVector(m_inertiaPrincipalAxis.RotateVector(localGyroTorque));
+		m_gyroAlpha = matrix.RotateVector(m_inertiaPrincipalAxis.RotateVector(localGyroTorque * m_invMass));
+#else
 		const ndVector localOmega(matrix.UnrotateVector(m_omega));
 		const ndVector localGyroTorque(localOmega.CrossProduct(m_mass * localOmega));
 		m_gyroTorque = matrix.RotateVector(localGyroTorque);
 		m_gyroAlpha = matrix.RotateVector(localGyroTorque * m_invMass);
+#endif
 	}
 	else
 	{
@@ -342,24 +377,28 @@ void ndBodyDynamic::EvaluateSleepState(ndFloat32 freezeSpeed2, ndFloat32 freezeA
 		ndAssert((!m_isConstrained && !m_weigh) || (m_isConstrained && m_weigh));
 
 		#ifdef _DEBUG
-		ndInt32 checkConnection = m_jointList.GetCount();
+		ndInt32 checkConnection = 0;
+		for (ndJointList::ndNode* node = m_jointList.GetFirst(); node; node = node->GetNext())
+		{
+			checkConnection += node->GetInfo()->IsActive() ? 1 : 0;
+		}
+
 		ndContactMap::Iterator it(m_contactList);
 		for (it.Begin(); it; it++)
 		{
 			ndContact* const contact = it.GetNode()->GetInfo();
-			if (contact->IsActive())
+			if (contact->IsActive() && !contact->IsTestOnly())
 			{
-				if (contact->GetBody0()->GetAsBodyDynamic() && contact->GetBody1()->GetAsBodyDynamic())
-				{
-					checkConnection++;
-				}
+				checkConnection++;
 			}
 		}
 		ndAssert(count == checkConnection);
 		#endif
 
-		const ndFloat32 acc2 = D_SOLVER_MAX_ERROR * D_SOLVER_MAX_ERROR;
-		const ndFloat32 maxAccNorm2 = (count > 1) ? acc2 : acc2 * ndFloat32(0.0625f);
+		//const ndFloat32 acc2 = D_SOLVER_MAX_ACCEL_ERROR * D_SOLVER_MAX_ACCEL_ERROR;
+		//const ndFloat32 maxAccNorm2 = (count > 1) ? acc2 : acc2 * ndFloat32(0.0625f);
+		//const ndFloat32 maxAccNorm2 = m_autoSleep ? ((count > 1) ? acc2 : acc2 * ndFloat32(0.0625f)) : ndFloat32((1.0e-3f));
+		const ndVector maxAccNorm2 ((count > 1) ? m_sleepAccelTest2 : m_sleepAccelTest2 * m_sleepAccelTestScale2);
 
 		ndVector accelTest((m_accel.DotProduct(m_accel) > maxAccNorm2) | (m_alpha.DotProduct(m_alpha) > maxAccNorm2));
 		m_accel = m_accel & accelTest;

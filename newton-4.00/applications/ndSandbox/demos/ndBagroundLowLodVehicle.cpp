@@ -76,13 +76,17 @@ class BackGroundVehicleController : public ndModel
 		,m_dPreviousError(0.0f)
 		,m_dCombinedMaximumForce()
 	{
-		m_dCombinedMaximumForce = pBody->GetMassMatrix().m_w * ndFloat32(6.0);      // Mass * Maximum acceleration of 6m/s/s
+		// Mass * Maximum acceleration of 6m/s/s
+		m_dCombinedMaximumForce = pBody->GetMassMatrix().m_w * ndFloat32(6.0);      
 	}
+
+	virtual void OnAddToWorld() { ndAssert(0); }
+	virtual void OnRemoveFromToWorld() { ndAssert(0); }
 
 	protected:
 	virtual void Update(ndWorld* const, ndFloat32 timestep) override
 	{
-		ndMatrix mMatrix(m_pAiBody->GetRotation(), ndVector(ndFloat32(0.0), ndFloat32(0.0), ndFloat32(0.0), ndFloat32(1.0)));
+		ndMatrix mMatrix(ndCalculateMatrix(m_pAiBody->GetRotation(), ndVector::m_wOne));
 		ndVector vForward = mMatrix.TransformVector(ndVector(ndFloat32(0.0), ndFloat32(0.0), ndFloat32(1.0), ndFloat32(0.0)));
 		ndVector vVelocity = m_pAiBody->GetVelocity();
 		m_dCurrentSpeed = (vForward.DotProduct(vVelocity)).GetScalar();
@@ -125,7 +129,7 @@ class BackGroundVehicleController : public ndModel
 
 	void _ApplyLateralForces(ndFloat32 dTimestep)
 	{
-		ndMatrix mMatrix(m_pAiBody->GetRotation(), ndVector(ndFloat32(0.0), ndFloat32(0.0), ndFloat32(0.0), ndFloat32(1.0)));
+		ndMatrix mMatrix(ndCalculateMatrix(m_pAiBody->GetRotation(), ndVector::m_wOne));
 		ndVector vForward = mMatrix.TransformVector(ndVector(ndFloat32(0.0), ndFloat32(0.0), ndFloat32(1.0), ndFloat32(0.0)));
 		vForward.m_w = ndFloat32(0.0);
 		ndVector vUp = mMatrix.TransformVector(ndVector(ndFloat32(0.0), ndFloat32(1.0), ndFloat32(0.0), ndFloat32(0.0)));
@@ -247,7 +251,7 @@ static ndShapeInstance CreateCompondCollision()
 
 	// set material ID
 	ndShapeMaterial material(shapeInstance.GetMaterial());
-	material.m_userId = ndApplicationMaterial::m_aiCar;
+	material.m_userId = ndDemoContactCallback::m_aiCar;
 	shapeInstance.SetMaterial(material);
 	return shapeInstance;
 }
@@ -274,7 +278,7 @@ void ndBagroundLowLodVehicle(ndDemoEntityManager* const scene)
 {
 	BackgroundLowLodCVehicleMaterial material;
 	ndContactCallback* const callback = (ndContactCallback*)scene->GetWorld()->GetContactNotify();
-	callback->RegisterMaterial(material, ndApplicationMaterial::m_aiCar, ndApplicationMaterial::m_aiTerrain);
+	callback->RegisterMaterial(material, ndDemoContactCallback::m_aiCar, ndDemoContactCallback::m_aiTerrain);
 
 	ndMatrix heighfieldLocation(ndGetIdentityMatrix());
 	heighfieldLocation.m_posit.m_x = -200.0f;
@@ -290,7 +294,7 @@ void ndBagroundLowLodVehicle(ndDemoEntityManager* const scene)
 	//ndBodyKinematic* const mapBody = BuildStaticMesh(scene, "track.fbx", false);
 
 	ndShapeMaterial mapMaterial(mapBody->GetCollisionShape().GetMaterial());
-	mapMaterial.m_userId = ndApplicationMaterial::m_aiTerrain;
+	mapMaterial.m_userId = ndDemoContactCallback::m_aiTerrain;
 	mapBody->GetCollisionShape().SetMaterial(mapMaterial);
 	
 	AddAiVehicle(scene);

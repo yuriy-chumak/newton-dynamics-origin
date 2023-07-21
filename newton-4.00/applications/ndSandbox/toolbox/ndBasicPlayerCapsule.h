@@ -13,13 +13,13 @@
 #define _D_BASIC_PLAYER_CAPSULE_H_
 
 #include "ndSandboxStdafx.h"
-#include "ndAnimationPose.h"
 
 class ndDemoMesh;
 class ndDemoEntity;
 class ndPhysicsWorld;
 class ndDemoEntityManager;
 class ndAnimationBlendTreeNode;
+class ndAnimationSequencePlayer;
 
 class ndBasicPlayerCapsule: public ndBodyPlayerCapsule
 {
@@ -41,24 +41,37 @@ class ndBasicPlayerCapsule: public ndBodyPlayerCapsule
 		bool m_jump;
 	};
 
+	class ndFileBasicPlayerCapsule : public ndFileFormatBodyKinematicPlayerCapsule
+	{
+		public:
+		ndFileBasicPlayerCapsule()
+			:ndFileFormatBodyKinematicPlayerCapsule(ndBasicPlayerCapsule::StaticClassName())
+		{
+		}
+
+		virtual ndBody* LoadBody(const nd::TiXmlElement* const node, const ndTree<ndShape*, ndInt32>& shapeMap);
+		virtual void SaveBody(ndFileFormatSave* const scene, nd::TiXmlElement* const parentNode, const ndBody* const body);
+	};
+
+	ndBasicPlayerCapsule();
 	ndBasicPlayerCapsule(
-		ndDemoEntityManager* const scene, const ndDemoEntity* const modelEntity,
-		const ndMatrix& localAxis, const ndMatrix& location, 
+		ndDemoEntityManager* const scene, ndMeshLoader& loader,
+		const ndDemoEntity* const modelEntity, const ndMatrix& localAxis, const ndMatrix& location,
 		ndFloat32 mass, ndFloat32 radius, ndFloat32 height, ndFloat32 stepHeight, bool isPlayer = false);
 	~ndBasicPlayerCapsule();
 
 	void ApplyInputs(ndFloat32 timestep);
 	ndFloat32 ContactFrictionCallback(const ndVector& position, const ndVector& normal, ndInt32 contactId, const ndBodyKinematic* const otherbody) const;
 
-	void SetCamera();
+	void SetCamera(ndDemoEntityManager* const scene);
 	static void UpdateCameraCallback(ndDemoEntityManager* const manager, void* const context, ndFloat32 timestep);
 
-	ndDemoEntityManager* m_scene;
 	PlayerInputs m_playerInput;
 	bool m_isPlayer;
 
-	//ndAnimationPose m_output;
-	//ndAnimationBlendTreeNode* m_animBlendTree;
+	ndAnimationPose m_output;
+	ndAnimationTwoWayBlend* m_idleWalkBlend;
+	ndSharedPtr<ndAnimationBlendTreeNode> m_animBlendTree;
 };
 
 #endif

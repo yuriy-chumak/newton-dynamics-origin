@@ -24,7 +24,28 @@
 
 #include "ndBrainStdafx.h"
 #include "ndBrainLayer.h"
-#include "ndBrainTrainerBase.h"
+
+class ndBrainLoad;
+class ndBrainSave;
+
+class ndHidenVariableOffsets: public ndFixSizeArray<ndInt32, 32>
+{
+	public:
+	ndHidenVariableOffsets()
+		:ndFixSizeArray<ndInt32, 32>()
+	{
+	}
+
+	ndHidenVariableOffsets(const ndHidenVariableOffsets& src)
+		:ndFixSizeArray<ndInt32, 32>()
+	{
+		ndFixSizeArray<ndInt32, 32>::SetCount(0);
+		for (ndInt32 i = 0; i < src.GetCount(); ++i)
+		{
+			ndFixSizeArray<ndInt32, 32>::PushBack(src[i]);
+		}
+	}
+};
 
 class ndBrain: public ndArray<ndBrainLayer*>
 {
@@ -35,21 +56,31 @@ class ndBrain: public ndArray<ndBrainLayer*>
 
 	ndInt32 GetInputSize() const;
 	ndInt32 GetOutputSize() const;
-
-	bool Load(const char* const pathName);
-	void Save(const char* const pathName) const;
 	void CopyFrom(const ndBrain& src);
+	void SoftCopy(const ndBrain& src, ndReal blend);
 
 	void BeginAddLayer();
-	void EndAddLayer();
+	void EndAddLayer(ndReal randomVariance);
 	bool Compare(const ndBrain& src) const;
-
+	void InitGaussianWeights(ndReal variance);
 	ndBrainLayer* AddLayer(ndBrainLayer* const layer);
-	void InitGaussianWeights(ndReal mean, ndReal variance);
 
-	void* m_memory;
+	void MakePrediction(const ndBrainVector& input, ndBrainVector& output);
+	void CalculateInputGradients(const ndBrainVector& input, ndBrainVector& inputGradients);
+	void CalculateInputGradientLoss(const ndBrainVector& input, const ndBrainVector& groundTruth, ndBrainVector& inputGradients);
+
+	private:
+	void CalculateOffsets();
+	void MakePrediction(const ndBrainVector& input, ndBrainVector& output, const ndBrainVector& hiddenLayerOutputs);
+
+	ndReal* m_memory;
 	ndInt32 m_memorySize;
+	ndHidenVariableOffsets m_offsets;
 	bool m_isReady;
+
+	friend class ndBrainLoad;
+	friend class ndBrainSave;
+	friend class ndBrainTrainer;
 };
 
 #endif 

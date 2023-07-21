@@ -9,8 +9,8 @@
 * freely
 */
 
-#ifndef __D_CONVEX_FRACTURE_1_H__
-#define __D_CONVEX_FRACTURE_1_H__
+#ifndef __ND_CONVEX_FRACTURE_1_H__
+#define __ND_CONVEX_FRACTURE_1_H__
 
 #include "ndSandboxStdafx.h"
 
@@ -76,6 +76,9 @@ class ndExplodeConvexShapeModel: public ndModel
 	public:
 	ndExplodeConvexShapeModel(ndDemoEntityManager* const scene);
 	~ndExplodeConvexShapeModel();
+
+	virtual void OnAddToWorld() { ndAssert(0); }
+	virtual void OnRemoveFromToWorld() { ndAssert(0); }
 
 	void AddEffect(const ndEffect& effect, ndFloat32 mass, const ndMatrix& location);
 

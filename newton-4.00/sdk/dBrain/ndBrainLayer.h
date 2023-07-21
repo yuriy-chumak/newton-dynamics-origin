@@ -27,11 +27,13 @@
 #include "ndBrainVector.h"
 #include "ndBrainMatrix.h"
 
+class ndBrainLoad;
+class ndBrainSave;
+
 class ndBrainLayer: public ndBrainMatrix
 {
 	public: 
 	ndBrainLayer(const ndBrainLayer& src);
-	//ndBrainLayer(const nd::TiXmlNode* layerNode);
 	ndBrainLayer(ndInt32 inputs, ndInt32 outputs, ndBrainActivationType type);
 	virtual ~ndBrainLayer();
 
@@ -45,15 +47,18 @@ class ndBrainLayer: public ndBrainMatrix
 
 	virtual ndInt32 GetOuputSize() const;
 	virtual ndInt32 GetInputSize() const;
-	virtual void InitGaussianWeights(ndReal mean, ndReal variance);
+	virtual void InitGaussianWeights(ndReal variance);
 	virtual void MakePrediction(const ndBrainVector& input, ndBrainVector& output);
-	virtual void MakePrediction(ndThreadPool& threadPool, const ndBrainVector& input, ndBrainVector& output);
+
+	ndBrainActivationType GetActivationType() const;
 
 	virtual void CopyFrom(const ndBrainLayer& src);
+	virtual void Blend(const ndBrainLayer& src, ndReal blend);
+
 	virtual bool Compare(const ndBrainLayer& src) const;
 
-	//virtual void Load(const nd::TiXmlElement* const layerNode);
-	//virtual void Save(nd::TiXmlElement* const layerNode) const;
+	virtual void Load(const ndBrainLoad* const loadSave);
+	virtual void Save(const ndBrainSave* const loadSave) const;
 
 	void ApplyActivation(ndBrainVector& output) const;
 	void ActivationDerivative(const ndBrainVector& input, ndBrainVector& outputDerivative) const;
@@ -66,6 +71,7 @@ class ndBrainLayer: public ndBrainMatrix
 	void HyperbolicTanActivation(ndBrainVector& output) const;
 
 	void SigmoidDerivative(const ndBrainVector& input, ndBrainVector& derivativeOutput) const;
+	void SoftmaxDerivative(const ndBrainVector& input, ndBrainVector& derivativeOutput) const;
 	void HyperbolicTanDerivative(const ndBrainVector& input, ndBrainVector& derivativeOutput) const;
 	void ReluActivationDerivative(const ndBrainVector& input, ndBrainVector& derivativeOutput) const;
 	void LinealActivationDerivative(const ndBrainVector& input, ndBrainVector& derivativeOutput) const;
@@ -73,7 +79,15 @@ class ndBrainLayer: public ndBrainMatrix
 	ndDeepBrainMemVector m_bias;
 	ndBrainActivationType m_activation;
 	ndInt32 m_columns;
+	friend class ndBrain;
+	friend class ndBrainSave;
+	friend class ndBrainInstance;
 };
+
+inline ndBrainActivationType ndBrainLayer::GetActivationType() const
+{
+	return m_activation;
+}
 
 inline ndInt32 ndBrainLayer::GetOuputSize() const
 {

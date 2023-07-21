@@ -25,6 +25,14 @@ ndJointDoubleHinge::ndAxisParam::ndAxisParam()
 {
 }
 
+ndJointDoubleHinge::ndJointDoubleHinge()
+	:ndJointBilateralConstraint()
+	,m_axis0()
+	,m_axis1()
+{
+	m_maxDof = 8;
+}
+
 ndJointDoubleHinge::ndJointDoubleHinge(const ndMatrix& pinAndPivotFrame, ndBodyKinematic* const child, ndBodyKinematic* const parent)
 	:ndJointBilateralConstraint(8, child, parent, pinAndPivotFrame)
 	,m_axis0()
@@ -77,6 +85,13 @@ void ndJointDoubleHinge::SetAsSpringDamper0(ndFloat32 regularizer, ndFloat32 spr
 	m_axis0.m_springDamperRegularizer = ndClamp(regularizer, ndFloat32(1.0e-2f), ndFloat32(0.99f));
 }
 
+void ndJointDoubleHinge::GetSpringDamper0(ndFloat32& regularizer, ndFloat32& spring, ndFloat32& damper) const
+{
+	spring = m_axis0.m_springK;
+	damper = m_axis0.m_damperC;
+	regularizer = m_axis0.m_springDamperRegularizer;
+}
+
 ndFloat32 ndJointDoubleHinge::GetAngle1() const
 {
 	return m_axis1.m_angle;
@@ -116,6 +131,13 @@ void ndJointDoubleHinge::SetAsSpringDamper1(ndFloat32 regularizer, ndFloat32 spr
 	m_axis1.m_springK = ndAbs(spring);
 	m_axis1.m_damperC = ndAbs(damper);
 	m_axis1.m_springDamperRegularizer = ndClamp(regularizer, ndFloat32(1.0e-2f), ndFloat32(0.99f));
+}
+
+void ndJointDoubleHinge::GetSpringDamper1(ndFloat32& regularizer, ndFloat32& spring, ndFloat32& damper) const
+{
+	spring = m_axis1.m_springK;
+	damper = m_axis1.m_damperC;
+	regularizer = m_axis1.m_springDamperRegularizer;
 }
 
 void ndJointDoubleHinge::DebugJoint(ndConstraintDebugCallback& debugCallback) const

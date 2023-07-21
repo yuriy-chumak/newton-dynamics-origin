@@ -34,13 +34,18 @@ class ndSpecialList : public ndList<T*, ndContainersFreeListAlloc<T*>>
 	ndSpecialList();
 };
 
-class ndBodyList : public ndList<ndSharedPtr<ndBody>, ndContainersFreeListAlloc<ndSharedPtr<ndBody>*>>
+template<class T>
+class ndSharedList : public ndList<ndSharedPtr<T>, ndContainersFreeListAlloc<ndSharedPtr<T>*>>
 {
 	public:
-	ndBodyList()
-		:ndList<ndSharedPtr<ndBody>, ndContainersFreeListAlloc<ndSharedPtr<ndBody>*>>()
-	{
-	}
+	ndSharedList();
+};
+
+//class ndBodyList : public ndList<ndSharedPtr<ndBody>, ndContainersFreeListAlloc<ndSharedPtr<ndBody>*>>
+class ndBodyList : public ndSharedList<ndBody>
+{
+	public:
+	ndBodyList();
 };
 
 class ndBodyListView: public ndList<ndSharedPtr<ndBody>, ndContainersFreeListAlloc<ndSharedPtr<ndBody>*>>
@@ -64,6 +69,18 @@ class ndBodyListView: public ndList<ndSharedPtr<ndBody>, ndContainersFreeListAll
 template<class T>
 ndSpecialList<T>::ndSpecialList()
 	:ndList<T*, ndContainersFreeListAlloc<T*>>()
+{
+}
+
+template<class T>
+ndSharedList<T>::ndSharedList()
+	:ndList<ndSharedPtr<T>, ndContainersFreeListAlloc<ndSharedPtr<T>*>>()
+{
+}
+
+inline ndBodyList::ndBodyList()
+	//:ndList<ndSharedPtr<ndBody>, ndContainersFreeListAlloc<ndSharedPtr<ndBody>*>>()
+	:ndSharedList<ndBody>()
 {
 }
 

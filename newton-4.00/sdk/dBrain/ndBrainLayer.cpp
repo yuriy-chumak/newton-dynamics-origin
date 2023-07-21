@@ -20,7 +20,9 @@
 */
 
 #include "ndBrainStdafx.h"
+#include "ndBrain.h"
 #include "ndBrainLayer.h"
+#include "ndBrainSaveLoad.h"
 
 ndBrainLayer::ndBrainLayer(ndInt32 inputCount, ndInt32 outputCount, ndBrainActivationType activation)
 	:ndBrainMatrix()
@@ -44,42 +46,10 @@ ndBrainLayer::ndBrainLayer(const ndBrainLayer& src)
 	m_bias.SetSize(src.GetOuputSize());
 }
 
-#if 0
-ndBrainLayer::ndBrainLayer(const nd::TiXmlNode* layerNode)
-	:ndBrainMatrix()
-{
-	ndInt32 rows = xmlGetInt(layerNode, "outputs");
-	m_bias.SetSize(rows);
-	m_size = rows;
-	m_capacity = rows + 1;
-	m_columns = xmlGetInt(layerNode, "inputs");
-
-	const char* const activationType = xmlGetString(layerNode, "activation");
-	if (!strcmp(activationType, "tanh"))
-	{
-		m_activation = m_tanh;
-	}
-	else if (!strcmp(activationType, "relu"))
-	{
-		m_activation = m_relu;
-	}
-	else if (!strcmp(activationType, "lineal"))
-	{
-		m_activation = m_tanh;
-	}
-	else if (!strcmp(activationType, "sigmoid"))
-	{
-		m_activation = m_sigmoid;
-	}
-	else
-	{
-		ndAssert(0);
-	}
-}
-#endif
-
 ndBrainLayer::~ndBrainLayer()
 {
+	m_size = 0;
+	m_capacity = 0;
 }
 
 ndUnsigned8* ndBrainLayer::SetPointers(ndUnsigned8* const memPtr)
@@ -107,6 +77,12 @@ void ndBrainLayer::CopyFrom(const ndBrainLayer& src)
 	m_bias.Set(src.m_bias);
 }
 
+void ndBrainLayer::Blend(const ndBrainLayer& src, ndReal blend)
+{
+	ndBrainMatrix::Blend(src, blend);
+	m_bias.Blend(src.m_bias, blend);
+}
+
 bool ndBrainLayer::Compare(const ndBrainLayer& src) const
 {
 	if (m_activation != src.m_activation)
@@ -132,7 +108,7 @@ bool ndBrainLayer::Compare(const ndBrainLayer& src) const
 	}
 	
 	const ndBrainMatrix& me = (*this);
-	for (ndInt32 i = 0; i < me.GetCount(); i++)
+	for (ndInt32 i = 0; i < me.GetCount(); ++i)
 	{
 		const ndBrainVector& row0 = me[i];
 		const ndBrainVector& row1 = src[i];
@@ -155,82 +131,14 @@ bool ndBrainLayer::Compare(const ndBrainLayer& src) const
 	return true;
 }
 
-#if 0
-void ndBrainLayer::Load(const nd::TiXmlElement* const layerNode)
+void ndBrainLayer::InitGaussianWeights(ndReal variance)
 {
-	const nd::TiXmlNode* const weights = layerNode->FirstChild("inputWeights");
-	ndArray<ndReal> tmpRead;
-	if (weights)
-	{
-		ndBrainMatrix& me = *this;
-		for (ndInt32 i = 0; i < GetOuputSize(); ++i)
-		{
-			char weightRow[256];
-			sprintf(weightRow, "weights%d", i);
-	
-			ndBrainVector& row = me[i];
-			xmlGetFloatArray(weights, weightRow, tmpRead);
-			ndAssert(tmpRead.GetCount() == row.GetCount());
-			memcpy(&row[0], &tmpRead[0], sizeof(ndReal) * tmpRead.GetCount());
-		}
-	}
-
-	xmlGetFloatArray(layerNode, "biasWeights", tmpRead);
-	ndAssert(tmpRead.GetCount() == m_bias.GetCount());
-	memcpy(&m_bias[0], &tmpRead[0], sizeof(ndReal) * tmpRead.GetCount());
-}
-
-void ndBrainLayer::Save(nd::TiXmlElement* const layerNode) const
-{
-	xmlSaveParam(layerNode, "type", "fullyConnected");
-	xmlSaveParam(layerNode, "inputs", GetColumns());
-	xmlSaveParam(layerNode, "outputs", GetRows());
-	
-	switch (m_activation)
-	{
-		case m_relu:
-			xmlSaveParam(layerNode, "activation", "relu");
-			break;
-
-		case m_lineal:
-			xmlSaveParam(layerNode, "activation", "lineal");
-			break;
-
-		case m_tanh:
-			xmlSaveParam(layerNode, "activation", "tanh");
-			break;
-	
-		case m_softmax:
-			xmlSaveParam(layerNode, "activation", "softmax");
-			break;
-	
-		case m_sigmoid:
-		default:
-			xmlSaveParam(layerNode, "activation", "sigmoid");
-			break;
-	}
-	
-	//xmlSaveParam(layerNode, "biasWeights", m_bias.GetCount(), &m_bias[0]);
-	xmlSaveParam(layerNode, "biasWeights", m_bias);
-	
-	nd::TiXmlElement* const input = new nd::TiXmlElement("inputWeights");
-	layerNode->LinkEndChild(input);
-	for (ndInt32 i = 0; i < GetCount(); i++)
-	{
-		char weight[256];
-		sprintf(weight, "weights%d", i);
-		//xmlSaveParam(input, weight, GetInputSize(), &(*this)[i][0]);
-		xmlSaveParam(input, weight, (*this)[i]);
-	}
-}
-#endif
-
-void ndBrainLayer::InitGaussianWeights(ndReal mean, ndReal variance)
-{
-	m_bias.Set(0.0f);
+	m_bias.InitGaussianWeights(variance * ndReal (0.5f));
+	//m_bias.InitGaussianWeights(variance * ndReal (0.25f));
+	//m_bias.InitGaussianWeights(variance * ndReal(0.0f));
 	for (ndInt32 i = GetCount() - 1; i >= 0; --i)
 	{
-		(*this)[i].InitGaussianWeights(mean, variance);
+		(*this)[i].InitGaussianWeights(variance);
 	}
 }
 
@@ -253,10 +161,10 @@ void ndBrainLayer::SigmoidActivation(ndBrainVector& output) const
 	{
 		ndReal value = ndClamp (output[i], ndReal(-50.0f), ndReal(50.0f));
 		const ndReal exp = ndReal(ndPow(ndEXP, value));
-		output[i] = exp / (exp + 1.0f);
+		output[i] = exp / (exp + ndReal(1.0f));
 		ndAssert (ndCheckFloat(output[i]));
-		ndAssert(output[i] <= 1.0f);
-		ndAssert(output[i] >= 0.0f);
+		ndAssert(output[i] <= ndReal(1.0f));
+		ndAssert(output[i] >= ndReal(0.0f));
 	}
 }
 
@@ -265,11 +173,11 @@ void ndBrainLayer::HyperbolicTanActivation(ndBrainVector& output) const
 	for (ndInt32 i = output.GetCount() - 1; i >= 0; --i)
 	{
 		ndReal value = ndClamp(output[i], ndReal(-25.0f), ndReal(25.0f));
-		const ndReal exp = ndReal(ndPow(ndEXP, 2.0f * value));
-		output[i] = (exp - 1.0f) / (exp + 1.0f);
+		const ndReal exp = ndReal(ndPow(ndEXP, ndReal(2.0f) * value));
+		output[i] = (exp - ndReal(1.0f)) / (exp + ndReal(1.0f));
 		ndAssert(ndCheckFloat(output[i]));
-		ndAssert(output[i] <= 1.0f);
-		ndAssert(output[i] >= -1.0f);
+		ndAssert(output[i] <= ndReal(1.0f));
+		ndAssert(output[i] >= ndReal(-1.0f));
 	}
 }
 
@@ -285,12 +193,12 @@ void ndBrainLayer::SoftmaxActivation(ndBrainVector& output) const
 	}
 	
 	ndAssert(acc > 0.0f);
-	ndReal invAcc = 1.0f / acc;
+	ndReal invAcc = ndReal(1.0f) / acc;
 	for (ndInt32 i = output.GetCount() - 1; i >= 0; --i)
 	{
 		output[i] *= invAcc;
-		ndAssert(output[i] <= 1.0f);
-		ndAssert(output[i] >= 0.0f);
+		ndAssert(output[i] <= ndReal(1.0f));
+		ndAssert(output[i] >= ndReal(0.0f));
 	}
 }
 
@@ -304,12 +212,32 @@ void ndBrainLayer::SigmoidDerivative(const ndBrainVector& input, ndBrainVector& 
 	}
 }
 
+void ndBrainLayer::SoftmaxDerivative(const ndBrainVector& input, ndBrainVector& derivativeOutput) const
+{
+	ndAssert(input.GetCount() == derivativeOutput.GetCount());
+	
+	// this is not correct, for now use SigmoidDerivative, 
+	// Categorical Cross-Entropy Loss
+	SigmoidDerivative(input, derivativeOutput);
+
+	//for (ndInt32 i = input.GetCount() - 1; i >= 0; --i)
+	//{
+	//	ndReal val = input[i];
+	//	ndReal acc = input[i];
+	//	for (ndInt32 j = input.GetCount() - 1; j >= 0; --j)
+	//	{
+	//		acc -= val * input[j];
+	//	}
+	//	derivativeOutput[i] = acc;
+	//}
+}
+
 void ndBrainLayer::LinealActivationDerivative(const ndBrainVector& input, ndBrainVector& derivativeOutput) const
 {
 	ndAssert(input.GetCount() == derivativeOutput.GetCount());
 	for (ndInt32 i = input.GetCount() - 1; i >= 0; --i)
 	{
-		derivativeOutput[i] = 1.0f;
+		derivativeOutput[i] = ndReal(1.0f);
 	}
 }
 
@@ -319,7 +247,7 @@ void ndBrainLayer::ReluActivationDerivative(const ndBrainVector& input, ndBrainV
 	for (ndInt32 i = input.GetCount() - 1; i >= 0; --i)
 	{
 		ndReal val = input[i];
-		derivativeOutput[i] = (val > 0.0f) ? 1.0f : 0.0f;
+		derivativeOutput[i] = (val > ndReal(0.0f)) ? ndReal(1.0f) : ndReal(0.0f);
 	}
 }
 
@@ -402,8 +330,7 @@ void ndBrainLayer::ActivationDerivative(const ndBrainVector& input, ndBrainVecto
 
 		case m_softmax:
 		{
-			ndAssert(0);
-			//SoftmaxActivation(output);
+			SoftmaxDerivative(input, derivativeOutput);
 			break;
 		}
 
@@ -415,29 +342,63 @@ void ndBrainLayer::ActivationDerivative(const ndBrainVector& input, ndBrainVecto
 void ndBrainLayer::MakePrediction(const ndBrainVector& input, ndBrainVector& output)
 {
 	Mul(input, output);
-	output.Add(output, m_bias);
+	output.Add(m_bias);
 	ApplyActivation(output);
 }
 
-void ndBrainLayer::MakePrediction(ndThreadPool& threadPool, const ndBrainVector& input, ndBrainVector& output)
+void ndBrainLayer::Save(const ndBrainSave* const loadSave) const
 {
-	auto MakePrediction = ndMakeObject::ndFunction([this, &input, &output](ndInt32 threadIndex, ndInt32 threadCount)
+	char buffer[1024];
+	auto Save = [this, &buffer, &loadSave](const char* const fmt, ...)
 	{
-		const ndStartEnd startEnd(output.GetCount(), threadIndex, threadCount);
-		const ndInt32 count(startEnd.m_end - startEnd.m_start);
-		if (count)
+		va_list v_args;
+		buffer[0] = 0;
+		va_start(v_args, fmt);
+		vsprintf(buffer, fmt, v_args);
+		va_end(v_args);
+		loadSave->WriteData(buffer);
+	};
+
+	Save("\tbiasWeights ", m_bias.GetCount());
+	for (ndInt32 i = 0; i < m_bias.GetCount(); ++i)
+	{
+		Save("%g ", m_bias[i]);
+	}
+	Save("\n");
+
+	Save("\tinputWeights\n");
+	for (ndInt32 i = 0; i < GetCount(); ++i)
+	{
+		Save("\t\tweights_%d ", i);
+		const ndBrainVector& row = (*this)[i];
+		for (ndInt32 j = 0; j < GetInputSize(); ++j)
 		{
-			ndDeepBrainMemVector out(&output[startEnd.m_start], count);
-			const ndDeepBrainMemVector bias(&m_bias[startEnd.m_start], count);
-	
-			const ndBrainMatrix& matrix = (*this);
-			for (ndInt32 i = startEnd.m_start; i < startEnd.m_end; ++i)
-			{
-				output[i] = input.Dot(matrix[i]);
-			}
-			out.Add(out, bias);
-			ApplyActivation(out);
+			Save("%g ", row[j]);
 		}
-	});
-	threadPool.ParallelExecute(MakePrediction);
+		Save("\n");
+	}
+}
+
+void ndBrainLayer::Load(const ndBrainLoad* const loader)
+{
+	char buffer[1024];
+	loader->ReadString(buffer);
+
+	for (ndInt32 i = 0; i < m_bias.GetCount(); ++i)
+	{
+		ndFloat32 weight = loader->ReadFloat();
+		m_bias[i] = ndReal(weight);
+	}
+
+	loader->ReadString(buffer);
+	for (ndInt32 i = 0; i < GetOuputSize(); ++i)
+	{
+		loader->ReadString(buffer);
+		ndBrainVector& row = (*this)[i];
+		for (ndInt32 j = 0; j < GetInputSize(); ++j)
+		{
+			ndFloat32 weight = loader->ReadFloat();
+			row[j] = ndReal(weight);
+		}
+	}
 }

@@ -23,6 +23,12 @@
 #include "ndNewtonStdafx.h"
 #include "ndMultiBodyVehicleDifferentialAxle.h"
 
+ndMultiBodyVehicleDifferentialAxle::ndMultiBodyVehicleDifferentialAxle()
+	:ndJointBilateralConstraint()
+{
+	m_maxDof = 1;
+}
+
 ndMultiBodyVehicleDifferentialAxle::ndMultiBodyVehicleDifferentialAxle(
 	const ndVector& pin0, const ndVector& upPin, ndBodyKinematic* const differentialBody0,
 	const ndVector& pin1, ndBodyKinematic* const body1)
@@ -30,7 +36,7 @@ ndMultiBodyVehicleDifferentialAxle::ndMultiBodyVehicleDifferentialAxle(
 {
 	ndMatrix temp;
 	ndMatrix matrix0(pin0, upPin, pin0.CrossProduct(upPin), ndVector::m_wOne);
-	ndMatrix matrix1(pin1);
+	ndMatrix matrix1(ndGramSchmidtMatrix(pin1));
 	CalculateLocalMatrix(matrix0, m_localMatrix0, temp);
 	CalculateLocalMatrix(matrix1, temp, m_localMatrix1);
 	SetSolverModel(m_jointkinematicCloseLoop);

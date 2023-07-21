@@ -41,7 +41,7 @@ ndIkSolver::ndIkSolver()
 	,m_timestep(ndFloat32(0.0f))
 	,m_invTimestep(ndFloat32(0.0f))
 	,m_maxAccel(ndFloat32(1.0e3f))
-	,m_maxAlpha(ndFloat32(1.0e3f))
+	,m_maxAlpha(ndFloat32(1.0e4f))
 {
 }
 
@@ -182,7 +182,7 @@ void ndIkSolver::UpdateJointAcceleration(ndConstraint* const joint)
 	constraintParam.m_timestep = m_timestep;
 	constraintParam.m_invTimestep = m_invTimestep;
 	joint->JacobianDerivative(constraintParam);
-	//const ndInt32 dof = constraintParam.m_rowsCount;
+
 	ndAssert(dof <= joint->m_rowCount);
 	ndAssert(dof == constraintParam.m_rowsCount);
 	joint->m_rowCount = dof;
@@ -238,6 +238,12 @@ void ndIkSolver::BuildJacobianMatrix (ndConstraint* const joint)
 	const ndMatrix& invInertia1 = body1->m_invWorldInertiaMatrix;
 	const ndVector invMass0(body0->m_invMass[3]);
 	const ndVector invMass1(body1->m_invMass[3]);
+	const ndFloat32 diagDampScale = joint->GetAsContact() ? ndFloat32(0.1f) : ndFloat32(1.0f);
+
+	const ndVector force0(body0->GetForce());
+	const ndVector torque0(body0->GetTorque());
+	const ndVector force1(body1->GetForce());
+	const ndVector torque1(body1->GetTorque());
 
 	for (ndInt32 i = 0; i < count; ++i)
 	{
@@ -248,19 +254,26 @@ void ndIkSolver::BuildJacobianMatrix (ndConstraint* const joint)
 		row->m_JMinv.m_jacobianM0.m_angular = invInertia0.RotateVector(row->m_Jt.m_jacobianM0.m_angular);
 		row->m_JMinv.m_jacobianM1.m_linear = row->m_Jt.m_jacobianM1.m_linear * invMass1;
 		row->m_JMinv.m_jacobianM1.m_angular = invInertia1.RotateVector(row->m_Jt.m_jacobianM1.m_angular);
-		const ndJacobian& JMinvM0 = row->m_JMinv.m_jacobianM0;
-		const ndJacobian& JMinvM1 = row->m_JMinv.m_jacobianM1;
-		rhs->m_force = ndFloat32(0.0f);
-		
+
 		const ndJacobian& JtM0 = row->m_Jt.m_jacobianM0;
 		const ndJacobian& JtM1 = row->m_Jt.m_jacobianM1;
+		const ndJacobian& JMinvM0 = row->m_JMinv.m_jacobianM0;
+		const ndJacobian& JMinvM1 = row->m_JMinv.m_jacobianM1;
+
+		rhs->m_force = ndFloat32(0.0f);
 		const ndVector tmpDiag(
 			JMinvM0.m_linear * JtM0.m_linear + JMinvM0.m_angular * JtM0.m_angular +
 			JMinvM1.m_linear * JtM1.m_linear + JMinvM1.m_angular * JtM1.m_angular);
 		
-		ndFloat32 diag = tmpDiag.AddHorizontal().GetScalar();
-		ndAssert(diag > ndFloat32(0.0f));
-		rhs->m_diagDamp = diag * rhs->m_diagonalRegularizer;
+		ndAssert(tmpDiag.AddHorizontal().GetScalar() * diagDampScale > ndFloat32(0.0f));
+		rhs->m_diagDamp = tmpDiag.AddHorizontal().GetScalar() * diagDampScale * rhs->m_diagonalRegularizer;
+
+		const ndVector tmpAccel(
+			JMinvM0.m_linear * force0 + JMinvM0.m_angular * torque0 +
+			JMinvM1.m_linear * force1 + JMinvM1.m_angular * torque1);
+
+		const ndFloat32 extenalAcceleration = -tmpAccel.AddHorizontal().GetScalar();
+		rhs->m_coordenateAccel += extenalAcceleration;
 	}
 }
 
@@ -341,10 +354,14 @@ void ndIkSolver::BuildMassMatrix()
 			if (contact->IsActive())
 			{
 				bool duplicate = false;
-				const ndInt32 loops = m_skeleton->m_dynamicsLoopCount + m_skeleton->m_loopCount;
-				for (ndInt32 j = 0; j < loops; ++j)
+				//const ndInt32 loops = m_skeleton->m_dynamicsLoopCount + m_skeleton->m_loopCount;
+				//for (ndInt32 j = 0; j < loops; ++j)
+				//{
+				//	duplicate = duplicate || (m_skeleton->m_loopingJoints[j] == contact);
+				//}
+				for (ndInt32 j = contacts.GetCount() - 1; j >= 0; --j)
 				{
-					duplicate = duplicate || (m_skeleton->m_loopingJoints[j] == contact);
+					duplicate = duplicate || (contacts[j] == contact);
 				}
 				if (!duplicate)
 				{
@@ -381,6 +398,7 @@ void ndIkSolver::BuildMassMatrix()
 		const ndVector gyroTorque(body->m_omega.CrossProduct(body->CalculateAngularMomentum()));
 		m_internalForces[i].m_linear = body->GetForce();
 		m_internalForces[i].m_angular = body->GetTorque() - gyroTorque;
+		body->m_gyroTorque = gyroTorque;
 	}
 	
 	for (ndInt32 i = m_skeleton->m_nodeList.GetCount() - 2; i >= 0; --i)
@@ -415,6 +433,7 @@ void ndIkSolver::SolverBegin(ndSkeletonContainer* const skeleton, ndJointBilater
 	m_timestep = timestep;
 	m_invTimestep = ndFloat32(1.0f) / timestep;
 
+	m_skeleton->ClearCloseLoopJoints();
 	for (ndInt32 i = jointCount - 1; i >= 0; --i)
 	{
 		m_skeleton->AddCloseLoopJoint((ndConstraint*)joints[i]);
@@ -454,6 +473,8 @@ void ndIkSolver::Solve()
 			ndBodyKinematic* const body = m_bodies[i];
 			body->m_accel = zero;
 			body->m_alpha = zero;
+			m_internalForces[i].m_linear = body->GetForce();
+			m_internalForces[i].m_angular = body->GetTorque() - body->GetGyroTorque();
 		}
 		m_skeleton->SolveImmediate(*this);
 
@@ -466,23 +487,27 @@ void ndIkSolver::Solve()
 		{
 			ndBodyKinematic* const body = m_bodies[i];
 			ndAssert(body->m_index == i);
-			//const ndInt32 index = body->m_index;
 			
 			const ndVector invMass(body->GetInvMass());
 			const ndMatrix& invInertia = body->GetInvInertiaMatrix();
 			
-			ndVector accel(invMass * (body->m_accel + m_internalForces[i].m_linear));
-			ndVector alpha(invInertia.RotateVector(body->m_alpha + m_internalForces[i].m_angular));
+			body->m_accel += m_internalForces[i].m_linear;
+			body->m_alpha += m_internalForces[i].m_angular;
+
+			ndVector accel(invMass * body->m_accel);
+			ndVector alpha(invInertia.RotateVector(body->m_alpha));
 			
 			ndFloat32 maxAccel2 = accel.DotProduct(accel).GetScalar();
 			if (maxAccel2 > (m_maxAccel * m_maxAccel))
 			{
+				ndTrace(("inv dynamics exceeding max lineal acceleration\n"));
 				accel = accel.Normalize().Scale(m_maxAccel);
 			}
 			
 			ndFloat32 maxAlpha2 = alpha.DotProduct(alpha).GetScalar();
 			if (maxAlpha2 > (m_maxAlpha * m_maxAlpha))
 			{
+				ndTrace(("inv dynamics exceeding max angular acceleration\n"));
 				alpha = alpha.Normalize().Scale(m_maxAlpha);
 			}
 			
@@ -498,14 +523,6 @@ void ndIkSolver::Solve()
 			const ndInt32 index1 = (joint->GetBody1()->GetInvMass() > ndFloat32(0.0f)) ? joint->GetBody1()->m_index : 0;
 			joint->SetIkSetAccel(accelerations[index0], accelerations[index1]);
 			joint->SetIkMode(false);
-		}
-
-		for (ndInt32 i = 1; i < m_bodies.GetCount(); ++i)
-		{
-			ndBodyKinematic* const body = m_bodies[i];
-			const ndInt32 index = body->m_index;
-			body->m_accel += m_internalForces[index].m_linear;
-			body->m_alpha += m_internalForces[index].m_angular;
 		}
 	}
 }

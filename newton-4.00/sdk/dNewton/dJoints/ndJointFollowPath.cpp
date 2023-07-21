@@ -13,6 +13,12 @@
 #include "ndNewtonStdafx.h"
 #include "ndJointFollowPath.h"
 
+ndJointFollowPath::ndJointFollowPath()
+	:ndJointBilateralConstraint()
+{
+	m_maxDof = 6;
+}
+
 ndJointFollowPath::ndJointFollowPath (const ndMatrix& pinAndPivotFrame, ndBodyKinematic* const child, ndBodyKinematic* const parent)
 	:ndJointBilateralConstraint(6, child, parent, pinAndPivotFrame)
 {
@@ -40,7 +46,7 @@ void ndJointFollowPath::JacobianDerivative(ndConstraintDescritor& desc)
 		pathTangent = pathTangent.Scale (-1.0f);
 	}
 
-	matrix1 = ndMatrix(pathTangent);
+	matrix1 = ndMatrix(ndGramSchmidtMatrix(pathTangent));
 	matrix1.m_posit = pathPosit;
 	matrix1.m_posit.m_w = 1.0f;
 	

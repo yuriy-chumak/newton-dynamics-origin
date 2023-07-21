@@ -477,6 +477,12 @@ void ndShapeHeightfield::GetCollidingFaces(ndPolygonMeshDesc* const data) const
 	ndInt32 z0 = ndInt32(p0.m_iz);
 	ndInt32 z1 = ndInt32(p1.m_iz);
 
+	if ((x1 == x0) || (z1 == z0))
+	{
+		data->m_staticMeshQuery->m_faceIndexCount.SetCount(0);
+		return;
+	}
+
 	ndFloat32 minHeight = ndFloat32(1.0e10f);
 	ndFloat32 maxHeight = ndFloat32(-1.0e10f);
 	data->SetSeparatingDistance(ndFloat32(0.0f));
@@ -550,8 +556,11 @@ void ndShapeHeightfield::GetCollidingFaces(ndPolygonMeshDesc* const data) const
 					//normalBase 
 					const ndInt32 normalIndex0 = normalBase;
 					const ndInt32 normalIndex1 = normalBase + 1;
-					vertex[normalIndex0] = n0.Normalize();
-					vertex[normalIndex1] = n1.Normalize();
+
+					n0 = n0.Normalize();
+					n1 = n1.Normalize();
+					vertex[normalIndex0] = n0;
+					vertex[normalIndex1] = n1;
 
 					ndGridQuad& quad = quadArray[quadCount];
 
@@ -579,7 +588,7 @@ void ndShapeHeightfield::GetCollidingFaces(ndPolygonMeshDesc* const data) const
 
 					ndVector dp(vertex[i3] - vertex[i1]);
 					ndAssert(dp.m_w == ndFloat32(0.0f));
-					ndFloat32 dist = vertex[normalIndex0].DotProduct(dp).GetScalar();
+					ndFloat32 dist = n0.DotProduct(dp).GetScalar();
 					if (dist < -ndFloat32(1.0e-3f))
 					{
 						quad.m_triangle0.m_normal_edge01 = normalIndex1;
@@ -595,36 +604,72 @@ void ndShapeHeightfield::GetCollidingFaces(ndPolygonMeshDesc* const data) const
 
 			if (m_diagonalMode == m_invertedDiagonals)
 			{
-				for (ndInt32 i = 1; i < (quadCount - 1); ++i)
+				for (ndInt32 z = (z1 - z0) - 1; z >= 0; --z)
 				{
-					ndGridQuad& quad0 = quadArray[i - 1];
-					ndGridQuad& quad1 = quadArray[i - 0];
-
-					ndTriangle& triangle0 = quad0.m_triangle0;
-					ndTriangle& triangle1 = quad1.m_triangle1;
-
-					const ndVector& origin = vertex[triangle1.m_i1];
-					const ndVector& testPoint = vertex[triangle1.m_i0];
-					const ndVector& normal = vertex[triangle0.m_normal];
-					ndAssert(normal.m_w == ndFloat32(0.0f));
-					ndFloat32 dist(normal.DotProduct(testPoint - origin).GetScalar());
-					if (dist < -ndFloat32(1.0e-3f))
+					ndInt32 z_step = z * (x1 - x0);
+					for (ndInt32 x = (x1 - x0) - 1; x >= 1; --x)
 					{
-						ndInt32 n0 = triangle0.m_normal;
-						ndInt32 n1 = triangle1.m_normal;
-						triangle0.m_normal_edge12 = n1;
-						triangle1.m_normal_edge12 = n0;
+						ndInt32 quadIndex = z_step + x;
+						ndGridQuad& quad0 = quadArray[quadIndex - 1];
+						ndGridQuad& quad1 = quadArray[quadIndex - 0];
+
+						ndTriangle& triangle0 = quad0.m_triangle0;
+						ndTriangle& triangle1 = quad1.m_triangle1;
+
+						const ndVector& origin = vertex[triangle1.m_i1];
+						const ndVector& testPoint = vertex[triangle1.m_i0];
+						const ndVector& normal = vertex[triangle0.m_normal];
+						ndAssert(normal.m_w == ndFloat32(0.0f));
+						ndFloat32 dist(normal.DotProduct(testPoint - origin).GetScalar());
+						if (dist < -ndFloat32(1.0e-3f))
+						{
+							ndInt32 n0 = triangle0.m_normal;
+							ndInt32 n1 = triangle1.m_normal;
+							triangle0.m_normal_edge12 = n1;
+							triangle1.m_normal_edge12 = n0;
+						}
 					}
 				}
 
-				const ndInt32 quadStep = x1 - x0;
-				for (ndInt32 i = 0; i < quadCount; ++i)
+				for (ndInt32 x = (x1 - x0) - 1; x >= 0; --x)
 				{
-					ndInt32 j = i + quadStep;
-					if (j < quadCount)
+					ndInt32 x_step = x1 - x0;
+					for (ndInt32 z = (z1 - z0) - 1; z >= 1; --z)
 					{
-						ndGridQuad& quad0 = quadArray[i];
-						ndGridQuad& quad1 = quadArray[j];
+						ndInt32 quadIndex = x_step * z + x;
+
+						ndGridQuad& quad0 = quadArray[quadIndex - x_step];
+						ndGridQuad& quad1 = quadArray[quadIndex];
+
+						ndTriangle& triangle0 = quad0.m_triangle1;
+						ndTriangle& triangle1 = quad1.m_triangle0;
+
+						const ndVector& origin = vertex[triangle1.m_i0];
+						const ndVector& testPoint = vertex[triangle1.m_i1];
+						const ndVector& normal = vertex[triangle0.m_normal];
+						ndAssert(normal.m_w == ndFloat32(0.0f));
+						ndFloat32 dist(normal.DotProduct(testPoint - origin).GetScalar());
+						if (dist < -ndFloat32(1.0e-3f))
+						{
+							ndInt32 n0 = triangle0.m_normal;
+							ndInt32 n1 = triangle1.m_normal;
+							triangle0.m_normal_edge20 = n1;
+							triangle1.m_normal_edge20 = n0;
+						}
+
+					}
+				}
+			}
+			else
+			{
+				for (ndInt32 z = (z1 - z0) - 1; z >= 0; --z)
+				{
+					ndInt32 z_step = z * (x1 - x0);
+					for (ndInt32 x = (x1 - x0) - 1; x >= 1; --x)
+					{
+						ndInt32 quadIndex = z_step + x;
+						ndGridQuad& quad0 = quadArray[quadIndex - 1];
+						ndGridQuad& quad1 = quadArray[quadIndex - 0];
 
 						ndTriangle& triangle0 = quad0.m_triangle1;
 						ndTriangle& triangle1 = quad1.m_triangle0;
@@ -643,39 +688,16 @@ void ndShapeHeightfield::GetCollidingFaces(ndPolygonMeshDesc* const data) const
 						}
 					}
 				}
-			}
-			else
-			{
-				for (ndInt32 i = 1; i < (quadCount - 1); ++i)
+
+				for (ndInt32 x = (x1 - x0) - 1; x >= 0; --x)
 				{
-					ndGridQuad& quad0 = quadArray[i - 1];
-					ndGridQuad& quad1 = quadArray[i - 0];
-
-					ndTriangle& triangle0 = quad0.m_triangle1;
-					ndTriangle& triangle1 = quad1.m_triangle0;
-
-					const ndVector& origin = vertex[triangle1.m_i0];
-					const ndVector& testPoint = vertex[triangle1.m_i1];
-					const ndVector& normal = vertex[triangle0.m_normal];
-					ndAssert(normal.m_w == ndFloat32(0.0f));
-					ndFloat32 dist(normal.DotProduct(testPoint - origin).GetScalar());
-					if (dist < -ndFloat32(1.0e-3f))
+					ndInt32 x_step = x1 - x0;
+					for (ndInt32 z = (z1 - z0) - 1; z >= 1; --z)
 					{
-						ndInt32 n0 = triangle0.m_normal;
-						ndInt32 n1 = triangle1.m_normal;
-						triangle0.m_normal_edge20 = n1;
-						triangle1.m_normal_edge20 = n0;
-					}
-				}
+						ndInt32 quadIndex = x_step * z + x;
 
-				const ndInt32 quadStep = x1 - x0;
-				for (ndInt32 i = 0; i < quadCount; ++i)
-				{
-					ndInt32 j = i + quadStep;
-					if (j < quadCount)
-					{
-						ndGridQuad& quad0 = quadArray[i];
-						ndGridQuad& quad1 = quadArray[j];
+						ndGridQuad& quad0 = quadArray[quadIndex - x_step];
+						ndGridQuad& quad1 = quadArray[quadIndex];
 
 						ndTriangle& triangle0 = quad0.m_triangle1;
 						ndTriangle& triangle1 = quad1.m_triangle0;
@@ -707,7 +729,7 @@ void ndShapeHeightfield::GetCollidingFaces(ndPolygonMeshDesc* const data) const
 
 		if (data->m_doContinueCollisionTest) 
 		{
-			ndAssert(0);
+			//ndAssert(0);
 			ndInt32* const indices = &quadDataArray[0];
 			ndFastRay ray(ndVector::m_zero, data->m_boxDistanceTravelInMeshSpace);
 			for (ndInt32 i = 0; i < quadCount * 2; ++i)
@@ -717,11 +739,9 @@ void ndShapeHeightfield::GetCollidingFaces(ndPolygonMeshDesc* const data) const
 				ndFloat32 dist = data->PolygonBoxRayDistance(faceNormal, 3, indexArray, stride, &vertex[0].m_x, ray);
 				if (dist < ndFloat32(1.0f)) 
 				{
-					//hitDistance[faceCount0] = dist;
-					//address[faceCount0] = faceIndexCount0;
 					hitDistance.PushBack(dist);
 					address.PushBack(faceIndexCount0);
-					memcpy(&indices[faceIndexCount0], indexArray, 9 * sizeof(ndInt32));
+					ndMemCpy(&indices[faceIndexCount0], indexArray, 9);
 					faceCount0++;
 					faceIndexCount0 += 9;
 				}
@@ -738,11 +758,9 @@ void ndShapeHeightfield::GetCollidingFaces(ndPolygonMeshDesc* const data) const
 				ndFloat32 dist = data->PolygonBoxDistance(faceNormal, 3, indexArray, stride, &vertex[0].m_x);
 				if (dist > ndFloat32(0.0f)) 
 				{
-					//hitDistance[faceCount0] = dist;
-					//address[faceCount0] = faceIndexCount0;
 					hitDistance.PushBack(dist);
 					address.PushBack(faceIndexCount0);
-					memcpy(&indices[faceIndexCount0], indexArray, 9 * sizeof(ndInt32));
+					ndMemCpy(&indices[faceIndexCount0], indexArray, 9);
 					faceCount0++;
 					faceIndexCount0 += 9;
 				}
@@ -758,7 +776,7 @@ void ndShapeHeightfield::GetCollidingFaces(ndPolygonMeshDesc* const data) const
 
 ndUnsigned64 ndShapeHeightfield::GetHash(ndUnsigned64 hash) const
 {
-	hash = dCRC64(&m_atributeMap[0], m_atributeMap.GetCount() * ndInt32(sizeof(ndInt8)), hash);
-	hash = dCRC64(&m_elevationMap[0], m_elevationMap.GetCount() * ndInt32(sizeof(ndReal)), hash);
+	hash = ndCRC64(&m_atributeMap[0], m_atributeMap.GetCount() * ndInt32(sizeof(ndInt8)), hash);
+	hash = ndCRC64(&m_elevationMap[0], m_elevationMap.GetCount() * ndInt32(sizeof(ndReal)), hash);
 	return hash;
 }

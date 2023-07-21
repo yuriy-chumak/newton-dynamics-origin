@@ -21,13 +21,42 @@
 #include "ndDemoSplinePathMesh.h"
 #include "ndDemoInstanceEntity.h"
 
-class SplinePathBody : public ndBodyDynamic
+class ndSplinePathBody : public ndBodyDynamic
 {
 	public:
-	D_CLASS_REFLECTION(SplinePathBody, ndBodyDynamic)
-	SplinePathBody(ndDemoEntityManager* const scene, ndMatrix& matrix)
+	D_CLASS_REFLECTION(ndSplinePathBody, ndBodyDynamic)
+
+	class ndSplinePathBodySaveLoad : public ndFileFormatBodyDynamic
+	{
+		public:
+		ndSplinePathBodySaveLoad()
+			:ndFileFormatBodyDynamic(ndSplinePathBody::StaticClassName())
+		{
+		}
+
+		void SaveBody(ndFileFormatSave* const scene, nd::TiXmlElement* const parentNode, const ndBody* const body)
+		{
+			nd::TiXmlElement* const classNode = xmlCreateClassNode(parentNode, D_BODY_CLASS, ndSplinePathBody::StaticClassName());
+			ndFileFormatBodyDynamic::SaveBody(scene, classNode, body);
+		}
+
+		virtual ndBody* LoadBody(const nd::TiXmlElement* const node, const ndTree<ndShape*, ndInt32>& shapeMap)
+		{
+			ndSplinePathBody* const body = new ndSplinePathBody();
+			ndFileFormatBodyDynamic::LoadBody((nd::TiXmlElement*)node->FirstChild(D_BODY_CLASS), shapeMap, body);
+			return body;
+		}
+	};
+
+	ndSplinePathBody()
 		:ndBodyDynamic()
 	{
+	}
+
+	ndSplinePathBody(ndDemoEntityManager* const scene, ndMatrix& matrix)
+		:ndBodyDynamic()
+	{
+		static ndSplinePathBodySaveLoad loadSave;
 		// create a Bezier Spline path for AI car to drive
 		ndShapeInstance box(new ndShapeBox(1.0f, 1.0f, 1.0f));
 		
@@ -47,7 +76,6 @@ class SplinePathBody : public ndBodyDynamic
 
 	void CreateSplinePath()
 	{
-		//ndDemoEntity* const rollerCosterPath = (ndDemoEntity*)GetNotifyCallback()->GetUserData();
 		ndFloat64 knots[] = { 0.0f, 1.0f / 5.0f, 2.0f / 5.0f, 3.0f / 5.0f, 4.0f / 5.0f, 1.0f };
 
 		ndBigVector control[] =
@@ -72,14 +100,43 @@ class ndJointFollowSplinePath : public ndJointFollowPath
 {
 	public:
 	D_CLASS_REFLECTION(ndJointFollowSplinePath, ndJointFollowPath)
+
+	class ndJointFollowSplinePathSaveLoad : public ndFileFormatJointFollowPath
+	{
+		public:
+		ndJointFollowSplinePathSaveLoad()
+			:ndFileFormatJointFollowPath(ndJointFollowSplinePath::StaticClassName())
+		{
+		}
+
+		void SaveJoint(ndFileFormatSave* const scene, nd::TiXmlElement* const parentNode, const ndJointBilateralConstraint* const joint)
+		{
+			nd::TiXmlElement* const classNode = xmlCreateClassNode(parentNode, D_JOINT_CLASS, ndJointFollowSplinePath::StaticClassName());
+			ndFileFormatJointFollowPath::SaveJoint(scene, classNode, joint);
+		}
+
+		ndJointBilateralConstraint* LoadJoint(const nd::TiXmlElement* const node, const ndTree<ndSharedPtr<ndBody>, ndInt32>& bodyMap)
+		{
+			ndJointFollowSplinePath* const joint = new ndJointFollowSplinePath();
+			ndFileFormatJointFollowPath::LoadJoint((nd::TiXmlElement*)node->FirstChild(D_JOINT_CLASS), bodyMap, joint);
+			return joint;
+		}
+	};
+
+	ndJointFollowSplinePath()
+		:ndJointFollowPath()
+	{
+	}
+
 	ndJointFollowSplinePath(const ndMatrix& pinAndPivotFrame, ndBodyDynamic* const child, ndBodyDynamic* const pathBody)
 		:ndJointFollowPath(pinAndPivotFrame, child, pathBody)
 	{
+		//static ndJointFollowSplinePathSaveLoad loadSave;
 	}
 
 	void GetPointAndTangentAtLocation(const ndVector& location, ndVector& positOut, ndVector& tangentOut) const
 	{
-		const SplinePathBody* const splineBody = (SplinePathBody*)GetBody1();
+		const ndSplinePathBody* const splineBody = (ndSplinePathBody*)GetBody1();
 		const ndBezierSpline& spline = splineBody->m_spline;
 		
 		ndMatrix matrix(splineBody->GetMatrix());
@@ -115,6 +172,8 @@ static void BuildBallSocket(ndDemoEntityManager* const scene, const ndVector& or
 	class ndJointSphericalMotor : public ndJointSpherical
 	{
 		public:
+		D_CLASS_REFLECTION(ndJointSphericalMotor, ndJointSpherical)
+
 		ndJointSphericalMotor(const ndMatrix& pinAndPivotFrame, ndBodyKinematic* const child, ndBodyKinematic* const parent)
 			:ndJointSpherical(pinAndPivotFrame, child, parent)
 			,m_rollAngle(0.0f)
@@ -163,7 +222,6 @@ static void BuildBallSocket(ndDemoEntityManager* const scene, const ndVector& or
 		ndMatrix bodyMatrix0(pinAlign * body->GetMatrix());
 		bodyMatrix0.m_posit.m_y += diameter * 0.5f + diameter * 0.25f;
 		ndBodyKinematic* const fixBody = world->GetSentinelBody();
-		//ndJointSpherical* const joint = new ndJointSphericalMotor(bodyMatrix0, body, fixBody);
 		ndSharedPtr<ndJointBilateralConstraint> joint (new ndJointSphericalMotor(bodyMatrix0, body, fixBody));
 		world->AddJoint(joint);
 	}
@@ -195,8 +253,6 @@ static void BuildBallSocket(ndDemoEntityManager* const scene, const ndVector& or
 			pinMatrix.m_posit = (bodyMatrix0.m_posit + bodyMatrix1.m_posit).Scale(0.5f);
 			ndJointSpherical* const joint = new ndJointSpherical(pinMatrix, array[i - 1], array[i - 0]);
 			joint->SetAsSpringDamper(regularizer, spring, friction);
-			//joint->SetConeLimit(60.0f * ndDegreeToRad);
-			//joint->SetTwistLimits(-90.0f * ndDegreeToRad, 90.0f * ndDegreeToRad);
 			ndSharedPtr<ndJointBilateralConstraint> jointPtr(joint);
 			world->AddJoint(jointPtr);
 		}
@@ -206,8 +262,6 @@ static void BuildBallSocket(ndDemoEntityManager* const scene, const ndVector& or
 		ndBodyKinematic* const fixBody = world->GetSentinelBody();
 		ndJointSpherical* const joint = new ndJointSpherical(bodyMatrix0, array[count - 1], fixBody);
 		joint->SetAsSpringDamper(regularizer, spring, friction);
-		//joint->SetConeLimit(60.0f * ndDegreeToRad);
-		//joint->SetTwistLimits(-90.0f * ndDegreeToRad, 90.0f * ndDegreeToRad);
 		ndSharedPtr<ndJointBilateralConstraint> jointPtr(joint);
 		world->AddJoint(jointPtr);
 	}
@@ -294,7 +348,6 @@ static void BuildSlider(ndDemoEntityManager* const scene, const ndVector& origin
 			:ndJointSlider(pinAndPivotFrame, child, parent)
 			, m_angle(0.0f)
 		{
-	
 		}
 	
 		void JacobianDerivative(ndConstraintDescritor& desc)
@@ -328,6 +381,7 @@ static void BuildSlider(ndDemoEntityManager* const scene, const ndVector& origin
 		ndJointSlider* const joint = new ndJointSlider(ndYawMatrix(90.0f * ndDegreeToRad) * matrix, body, fixBody);
 		joint->SetAsSpringDamper(0.1f, 100.0f, 5.0f);
 		joint->SetLimits(-1.0f, 1.0f);
+		joint->SetLimitState(true);
 		ndSharedPtr<ndJointBilateralConstraint> jointPtr(joint);
 		world->AddJoint(jointPtr);
 	}
@@ -339,6 +393,7 @@ static void BuildSlider(ndDemoEntityManager* const scene, const ndVector& origin
 		ndJointSlider* const joint = new ndJointSlider(ndYawMatrix(90.0f * ndDegreeToRad) * matrix, body, fixBody);
 		joint->SetAsSpringDamper(0.1f, 0.0f, 10.0f);
 		joint->SetLimits(-1.0f, 1.0f);
+		joint->SetLimitState(true);
 		ndSharedPtr<ndJointBilateralConstraint> jointPtr(joint);
 		world->AddJoint(jointPtr);
 	}
@@ -350,6 +405,7 @@ static void BuildSlider(ndDemoEntityManager* const scene, const ndVector& origin
 		ndJointSlider* const joint = new ndJointSliderOscillator(ndYawMatrix(90.0f * ndDegreeToRad) * matrix, body, fixBody);
 		joint->SetAsSpringDamper(0.1f, 500.0f, 10.0f);
 		joint->SetLimits(-1.0f, 1.0f);
+		joint->SetLimitState(true);
 		ndSharedPtr<ndJointBilateralConstraint> jointPtr(joint);
 		world->AddJoint(jointPtr);
 	}
@@ -370,7 +426,7 @@ static void BuildHinge(ndDemoEntityManager* const scene, const ndVector& origin,
 		{
 			m_angle += ndFmod(5.0f * desc.m_timestep, 2.0f * ndPi);
 			ndFloat32 dist = 150.0f * ndDegreeToRad * ndSin(m_angle);
-			SetOffsetAngle(dist);
+			SetTargetAngle(dist);
 			ndJointHinge::JacobianDerivative(desc);
 		}
 	
@@ -389,7 +445,7 @@ static void BuildHinge(ndDemoEntityManager* const scene, const ndVector& origin,
 		void JacobianDerivative(ndConstraintDescritor& desc)
 		{
 			ndFloat32 angle = GetAngle();
-			SetOffsetAngle(angle + m_speed * desc.m_timestep);
+			SetTargetAngle(angle + m_speed * desc.m_timestep);
 			ndJointHinge::JacobianDerivative(desc);
 		}
 		ndFloat32 m_speed;
@@ -415,6 +471,7 @@ static void BuildHinge(ndDemoEntityManager* const scene, const ndVector& origin,
 		ndJointHinge* const joint = new ndJointHinge(matrix, body, fixBody);
 		joint->SetAsSpringDamper(0.1f, 20.0f, 1.0f);
 		joint->SetLimits(-3.0f, 3.0f);
+		joint->SetLimitState(true);
 		ndSharedPtr<ndJointBilateralConstraint> jointPtr(joint);
 		world->AddJoint(jointPtr);
 	}
@@ -426,6 +483,7 @@ static void BuildHinge(ndDemoEntityManager* const scene, const ndVector& origin,
 		ndJointHinge* const joint = new ndJointHinge(matrix, body, fixBody);
 		joint->SetAsSpringDamper(0.1f, 0.0f, 1.0f);
 		joint->SetLimits(-10.0f, 15.0f);
+		joint->SetLimitState(true);
 		ndSharedPtr<ndJointBilateralConstraint> jointPtr(joint);
 		world->AddJoint(jointPtr);
 	}
@@ -537,12 +595,12 @@ static void BuildRoller(ndDemoEntityManager* const scene, const ndVector& origin
 		ndJointRoller* const joint = new ndJointRoller(ndPitchMatrix(90.0f * ndDegreeToRad) * matrix, body, fixBody);
 		joint->SetAsSpringDamperPosit(0.1f, 100.0f, 5.0f);
 		joint->SetLimitsPosit(-1.0f, 1.0f);
+		joint->SetLimitStatePosit(true);
 		ndSharedPtr<ndJointBilateralConstraint> jointPtr(joint);
 		world->AddJoint(jointPtr);
 	}
 }
 
-#if 1
 static void BuildCylindrical(ndDemoEntityManager* const scene, const ndVector& origin, ndFloat32 mass, ndFloat32 diameter)
 {
 	ndShapeInstance shape(new ndShapeChamferCylinder(diameter * 0.5f, diameter));
@@ -565,40 +623,11 @@ static void BuildCylindrical(ndDemoEntityManager* const scene, const ndVector& o
 		ndJointCylinder* const joint = new ndJointCylinder(matrix, body, fixBody);
 		joint->SetAsSpringDamperPosit(0.1f, 100.0f, 5.0f);
 		joint->SetLimitsPosit(-1.0f, 1.0f);
+		joint->SetLimitStatePosit(true);
 		ndSharedPtr<ndJointBilateralConstraint> jointPtr(joint);
 		world->AddJoint(jointPtr);
 	}
 }
-
-#else
-static void BuildCylindrical(ndDemoEntityManager* const scene, const ndVector& origin, ndFloat32 mass, ndFloat32 diameter)
-{
-	ndShapeInstance shape(new ndShapeChamferCylinder(0.5f, 0.2f/*0.25f*/));
-	ndSharedPtr<ndDemoMeshInterface> mesh(new ndDemoMesh("shape", scene->GetShaderCache(), &shape, "wood_0.tga", "wood_0.tga", "wood_0.tga"));
-
-	ndMatrix matrix(ndYawMatrix(90.0f * ndDegreeToRad));
-	matrix.m_posit = origin;
-	matrix.m_posit.m_w = 1.0f;
-
-	ndPhysicsWorld* const world = scene->GetWorld();
-
-	ndVector floor(FindFloor(*world, matrix.m_posit + ndVector(0.0f, 100.0f, 0.0f, 0.0f), 200.0f));
-	matrix.m_posit.m_y = floor.m_y;
-
-	ndBodyKinematic* const fixBody = world->GetSentinelBody();
-	{
-		// spring damper slider with limits
-		matrix.m_posit.m_y += 2.0f;
-		ndBodyDynamic* const body = MakePrimitive(scene, matrix, shape, mesh, mass);
-		body->SetAngularDamping(ndVector(ndFloat32(0.5f)));
-
-		//ndJointCylinder* const joint = new ndJointCylinder(matrix, body, fixBody);
-		//joint->SetAsSpringDamperPosit(0.1f, 100.0f, 5.0f);
-		//joint->SetLimitsPosit(-1.0f, 1.0f);
-		//world->AddJoint(joint);
-	}
-}
-#endif
 
 void BuildFixDistanceJoints(ndDemoEntityManager* const scene, const ndVector& origin)
 {
@@ -679,12 +708,12 @@ static void BuildGear(ndDemoEntityManager* const scene, const ndVector& origin, 
 	world->AddJoint(joint2);
 }
 
-static void AddPathFollow(ndDemoEntityManager* const scene, const ndVector& origin)
+static void BuildPathFollow(ndDemoEntityManager* const scene, const ndVector& origin)
 {
 	ndMatrix matrix(ndGetIdentityMatrix());
 	matrix.m_posit = origin;
 	
-	SplinePathBody* const pathBody = new SplinePathBody(scene, matrix);
+	ndSplinePathBody* const pathBody = new ndSplinePathBody(scene, matrix);
 	ndDemoEntity* const rollerCosterPath = (ndDemoEntity*)pathBody->GetNotifyCallback()->GetUserData();
 	
 	ndSharedPtr<ndDemoMeshInterface> mesh(new ndDemoSplinePathMesh(pathBody->m_spline, scene->GetShaderCache(), 500));
@@ -720,8 +749,8 @@ static void AddPathFollow(ndDemoEntityManager* const scene, const ndVector& orig
 	ndPhysicsWorld* const world = scene->GetWorld();
 	for (ndInt32 i = 0; i < count; ++i) 
 	{
-		ndVector location0(positions[i + 0].m_x, positions[i + 0].m_y, positions[i + 0].m_z, 0.0);
-		ndVector location1(positions[i + 1].m_x, positions[i + 1].m_y, positions[i + 1].m_z, 0.0);
+		ndVector location0(positions[i + 0].m_x, positions[i + 0].m_y, positions[i + 0].m_z, ndFloat32 (0.0f));
+		ndVector location1(positions[i + 1].m_x, positions[i + 1].m_y, positions[i + 1].m_z, ndFloat32(0.0f));
 		
 		location0 = pathBodyMatrix.TransformVector(location0);
 		location1 = pathBodyMatrix.TransformVector(location1);
@@ -732,7 +761,7 @@ static void AddPathFollow(ndDemoEntityManager* const scene, const ndVector& orig
 		matrix.m_right = matrix.m_front.CrossProduct(matrix.m_up);
 		matrix.m_right = matrix.m_right.Scale(1.0f / ndSqrt(matrix.m_right.DotProduct(matrix.m_right).GetScalar()));
 		matrix.m_up = matrix.m_right.CrossProduct(matrix.m_front);
-		matrix.m_posit = pathBodyMatrix.TransformVector(ndVector(positions[i].m_x, positions[i].m_y - attachmentOffset, positions[i].m_z, 1.0));
+		matrix.m_posit = pathBodyMatrix.TransformVector(ndVector(positions[i].m_x, positions[i].m_y - attachmentOffset, positions[i].m_z, ndFloat32(1.0f)));
 		ndMatrix matrix1(ndYawMatrix(0.5f * ndPi) * matrix);
 		
 		ndBodyKinematic* const body = new ndBodyDynamic();
@@ -747,7 +776,7 @@ static void AddPathFollow(ndDemoEntityManager* const scene, const ndVector& orig
 		world->AddBody(bodyPtr);
 		
 		bodies[i] = body->GetAsBodyDynamic();
-		matrix.m_posit = pathBodyMatrix.TransformVector(ndVector(positions[i].m_x, positions[i].m_y, positions[i].m_z, 1.0));
+		matrix.m_posit = pathBodyMatrix.TransformVector(ndVector(positions[i].m_x, positions[i].m_y, positions[i].m_z, ndFloat32(1.0f)));
 
 		ndJointFollowSplinePath* const joint = new ndJointFollowSplinePath(matrix, body->GetAsBodyDynamic(), pathBody);
 		ndSharedPtr<ndJointBilateralConstraint> jointPtr(joint);
@@ -788,13 +817,25 @@ void ndBasicJoints (ndDemoEntityManager* const scene)
 	BuildCylindrical(scene, ndVector(0.0f, 0.0f, 12.0f, 1.0f), 10.0f, 0.75f);
 	BuildFixDistanceJoints(scene, ndVector( 4.0f, 0.0f, -5.0f, 1.0f));
 	BuildRollingFriction(scene, ndVector(-4.0f, 0.0f, 0.0f, 1.0f), 10.0f, 0.5f);
-	AddPathFollow(scene, ndVector(40.0f, 0.0f, 0.0f, 1.0f));
+	BuildPathFollow(scene, ndVector(40.0f, 0.0f, 0.0f, 1.0f));
 	
 	ndQuaternion rot;
 	ndVector origin(-20.0f, 5.0f, 0.0f, 1.0f);
 
-//origin.m_z += 12.0f;
-//origin.m_x += 14.0f;
-//origin.m_y -= 4.0f;
+	//ndFileFormatSave xxxxSave;
+	//xxxxSave.SaveWorld(scene->GetWorld(), "xxxx.nd");
+	//ndFileFormatLoad xxxxLoad;
+	//xxxxLoad.Load("xxxx.nd");
+	//// offset bodies positions for calibration
+	//const ndList<ndSharedPtr<ndBody>>& bodyList = xxxxLoad.GetBodyList();
+	//for (ndList<ndSharedPtr<ndBody>>::ndNode* node = bodyList.GetFirst(); node; node = node->GetNext())
+	//{
+	//	ndSharedPtr<ndBody>& body = node->GetInfo();
+	//	ndMatrix bodyMatrix(body->GetMatrix());
+	//	bodyMatrix.m_posit.m_x += 4.0f;
+	//	body->SetMatrix(bodyMatrix);
+	//}
+	//xxxxLoad.AddToWorld(scene->GetWorld());
+
 	scene->SetCameraMatrix(rot, origin);
 }

@@ -30,22 +30,25 @@ class ndBrainVector: public ndArray<ndReal>
 	ndBrainVector();
 	~ndBrainVector();
 	
-	void InitGaussianWeights(ndReal mean, ndReal variance);
+	void InitGaussianWeights(ndReal variance);
 
 	void Set(ndReal value);
 	void Set(const ndBrainVector& data);
 
 	ndInt32 GetMaxIndex() const;
-
 	ndReal Dot(const ndBrainVector& a) const;
-	void ScaleSet(const ndBrainVector& a, ndReal scale);
-	void Add(const ndBrainVector& a, const ndBrainVector& b);
-	void Sub(const ndBrainVector& a, const ndBrainVector& b);
-	void Mul(const ndBrainVector& a, const ndBrainVector& b);
 
+	void Scale(ndReal b);
+	void Add(const ndBrainVector& a);
+	void Sub(const ndBrainVector& a);
+	void Mul(const ndBrainVector& a);
+
+	void Clamp(ndReal min, ndReal max);
 	void ScaleAdd(const ndBrainVector& a, ndReal b);
 	void MulAdd(const ndBrainVector& a, const ndBrainVector& b);
 	void MulSub(const ndBrainVector& a, const ndBrainVector& b);
+
+	void Blend(const ndBrainVector& target, ndReal blend);
 };
 
 class ndDeepBrainMemVector : public ndBrainVector

@@ -22,26 +22,45 @@
 #ifndef _ND_BRAIN_AGENT_H__
 #define _ND_BRAIN_AGENT_H__
 
-#include "ndBrainStdafx.h"
-#include "ndBrainMatrix.h"
-#include "ndBrainInstance.h"
-#include "ndBrainReplayBuffer.h"
+//#include "ndBrainStdafx.h"
+
+class ndBrainSave;
 
 class ndBrainAgent: public ndClassAlloc
 {
 	public: 
-	ndBrainAgent(ndBrain* const agent);
+	ndBrainAgent();
 	virtual ~ndBrainAgent();
 
-	virtual void LearnStep() = 0;
-	virtual void PredictAccion(ndBrainReiforcementTransition& transition);
-	virtual void GetTransition(ndBrainReiforcementTransition& transition) const = 0;
+	virtual void Step() = 0;
+	virtual void OptimizeStep() = 0;
 
-	ndBrainInstance m_network;
-	ndBrainReplayBuffer m_replayBuffer;
-	
-	ndFloat32 m_exploration;
+	const ndString& GetName() const;
+	void SetName(const ndString& name);
+	void SaveToFile(const char* const filename) const;
+
+	protected:
+	virtual void ResetModel() const = 0;
+	virtual bool IsTerminal() const = 0;
+	virtual ndReal GetReward() const = 0;
+	virtual ndReal GetCurrentValue() const = 0;
+	virtual ndInt32 GetEpisodeFrames() const = 0;
+	virtual void Save(ndBrainSave* const loadSave) const = 0;
+	virtual void ApplyActions(ndReal* const actions) const = 0;
+	virtual void GetObservation(ndReal* const state) const = 0;
+
+	ndString m_name;
 };
+
+inline const ndString& ndBrainAgent::GetName() const
+{
+	return m_name;
+}
+
+inline void ndBrainAgent::SetName(const ndString& name)
+{
+	m_name = name;
+}
 
 #endif 
 

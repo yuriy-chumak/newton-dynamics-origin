@@ -12,8 +12,8 @@
 #include "ndSandboxStdafx.h"
 #include "ndSkyBox.h"
 #include "ndDemoMesh.h"
+#include "ndMeshLoader.h"
 #include "ndDemoCamera.h"
-#include "ndLoadFbxMesh.h"
 #include "ndPhysicsUtils.h"
 #include "ndPhysicsWorld.h"
 #include "ndMakeStaticMap.h"
@@ -45,9 +45,9 @@ static ndBodyDynamic* AddRigidBody(
 
 static void AddToCompoundShape(const ndMatrix& mLocalMatrix, ndShapeInstance& parentShape, ndShapeInstance& childInstance)
 {
-	auto pCompoundShape = parentShape.GetShape()->GetAsShapeCompound();
+	ndShapeCompound* const compoundShape = parentShape.GetShape()->GetAsShapeCompound();
 	childInstance.SetLocalMatrix(mLocalMatrix);
-	pCompoundShape->AddCollision(&childInstance);
+	compoundShape->AddCollision(&childInstance);
 }
 
 static void CreateBoxCompoundShape(ndShapeInstance& parentInstance)
@@ -69,14 +69,14 @@ static void CreateBoxCompoundShape(ndShapeInstance& parentInstance)
 	//mFloorLocal = ndYawMatrix(3.14f / 4.0f);//45 degree
 	mFloorLocal.m_posit = ndVector(0.0f, -1.0f, 0.0f, 1.0f);
 
-	auto pCompoundShape = parentInstance.GetShape()->GetAsShapeCompound();
-	pCompoundShape->BeginAddRemove();
+	ndShapeCompound* const compoundShape = parentInstance.GetShape()->GetAsShapeCompound();
+	compoundShape->BeginAddRemove();
 	AddToCompoundShape(mWall1Local, parentInstance, wall1);
 	AddToCompoundShape(mWall2Local, parentInstance, wall2);
 	AddToCompoundShape(mWall3Local, parentInstance, wall3);
 	AddToCompoundShape(mWall4Local, parentInstance, wall4);
 	AddToCompoundShape(mFloorLocal, parentInstance, floor);
-	pCompoundShape->EndAddRemove();
+	compoundShape->EndAddRemove();
 }
 
 static void AddSphere(ndDemoEntityManager* const scene)
@@ -118,7 +118,8 @@ static void AddEmptyBox(ndDemoEntityManager* const scene)
 
 static void AddSimpleConcaveMesh(ndDemoEntityManager* const scene, const ndMatrix& matrix, const char* const meshName, int count = 1)
 {
-	ndDemoEntity* const bowlEntity = ndDemoEntity::LoadFbx(meshName, scene);
+	ndMeshLoader loader;
+	ndDemoEntity* const bowlEntity = loader.LoadEntity(meshName, scene);
 	ndShapeInstance* const compoundShapeInstance = bowlEntity->CreateCompoundFromMesh();
 	
 	ndMatrix originMatrix (matrix);
@@ -143,11 +144,11 @@ void ndBasicCompoundShapeDemo(ndDemoEntityManager* const scene)
 
 	// build a floor
 	//BuildPlayArena(scene);
-	//BuildFlatPlane(scene, true);
+	BuildFlatPlane(scene, true);
 	//BuildFloorBox(scene, ndGetIdentityMatrix());
 	//BuildCompoundScene(scene, ndGetIdentityMatrix());
 	//BuildGridPlane(scene, 120, 4.0f, 0.0f);
-	BuildHeightFieldTerrain(scene, heighfieldLocation);
+	//BuildHeightFieldTerrain(scene, heighfieldLocation);
 	//BuildProceduralMap(scene, 120, 4.0f, 0.0f);
 
 	ndMatrix location(ndGetIdentityMatrix());
@@ -158,7 +159,7 @@ void ndBasicCompoundShapeDemo(ndDemoEntityManager* const scene)
 	location.m_posit.m_y = 0.5f;
 	location.m_posit.m_z = -3.0f;
 	AddSimpleConcaveMesh(scene, location, "bowl.fbx", 4);
-
+	
 	location.m_posit.m_x = 5.0f;
 	location.m_posit.m_z = -2.0f;
 	location.m_posit.m_y = 1.7f;
@@ -177,7 +178,18 @@ void ndBasicCompoundShapeDemo(ndDemoEntityManager* const scene)
 	ndQuaternion rot(ndYawMatrix(45.0f * ndDegreeToRad));
 	scene->SetCameraMatrix(rot, origin);
 
-	ndFileFormat xxxx;
-	xxxx.CollectScene(scene->GetWorld());
-	xxxx.SaveBodies("xxxx.nd");
+	//ndFileFormatSave xxxxSave;
+	//xxxxSave.SaveWorld(scene->GetWorld(), "xxxx.nd");
+	//ndFileFormatLoad xxxxLoad;
+	//xxxxLoad.Load("xxxx.nd");
+	//// offset bodies positions for calibration;
+	//const ndList<ndSharedPtr<ndBody>>& bodyList = xxxxLoad.GetBodyList();
+	//for (ndList<ndSharedPtr<ndBody>>::ndNode* node = bodyList.GetFirst(); node; node = node->GetNext())
+	//{
+	//	ndSharedPtr<ndBody>& body = node->GetInfo();
+	//	ndMatrix bodyMatrix(body->GetMatrix());
+	//	bodyMatrix.m_posit.m_x += 4.0f;
+	//	body->SetMatrix(bodyMatrix);
+	//}
+	//xxxxLoad.AddToWorld(scene->GetWorld());
 }

@@ -83,8 +83,24 @@ class ndVector
 		,m_w(ndFloat32(ptr[3]))
 	{
 	}
-#endif
 
+	inline ndVector(ndFloat64 x, ndFloat64 y, ndFloat64 z, ndFloat64 w)
+		:m_x(ndFloat32(x))
+		,m_y(ndFloat32(y))
+		,m_z(ndFloat32(z))
+		,m_w(ndFloat32(w))
+	{
+	}
+
+	inline ndVector(const ndBigVector& copy)
+		:m_x(ndFloat32(((ndFloat64*)&copy)[0]))
+		,m_y(ndFloat32(((ndFloat64*)&copy)[1]))
+		,m_z(ndFloat32(((ndFloat64*)&copy)[2]))
+		,m_w(ndFloat32(((ndFloat64*)&copy)[3]))
+	{
+		ndAssert(ndCheckVector((*this)));
+	}
+#endif
 
 	inline ndVector (ndFloat32 x, ndFloat32 y, ndFloat32 z, ndFloat32 w) 
 		:m_x(x), m_y(y), m_z(z), m_w(w)
@@ -97,17 +113,6 @@ class ndVector
 	{
 	}
 
-#ifndef  D_NEWTON_USE_DOUBLE 
-	inline ndVector (const ndBigVector& copy)
-		:m_x(ndFloat32 (((ndFloat64*)&copy)[0])) 
-		,m_y(ndFloat32 (((ndFloat64*)&copy)[1])) 
-		,m_z(ndFloat32 (((ndFloat64*)&copy)[2])) 
-		,m_w(ndFloat32 (((ndFloat64*)&copy)[3])) 
-	{
-		ndAssert (ndCheckVector ((*this)));
-	}
-#endif
-
 	inline ndFloat32 GetScalar () const
 	{
 		return m_x;
@@ -119,6 +124,46 @@ class ndVector
 		dst[1] = m_y;
 		dst[2] = m_z;
 		dst[3] = m_w;
+	}
+
+	inline ndFloat32 GetX() const
+	{
+		return m_x;
+	}
+
+	inline ndFloat32 GetY() const
+	{
+		return m_y;
+	}
+
+	inline ndFloat32 GetZ() const
+	{
+		return m_z;
+	}
+
+	inline ndFloat32 GetW() const
+	{
+		return m_w;
+	}
+
+	inline void SetX(ndFloat32 x)
+	{
+		m_x = x;
+	}
+
+	inline void SetY(ndFloat32 x)
+	{
+		m_y = x;
+	}
+
+	inline void SetZ(ndFloat32 x)
+	{
+		m_z = x;
+	}
+
+	inline void SetW(ndFloat32 x)
+	{
+		m_w = x;
 	}
 
 	inline ndVector BroadcastX () const
@@ -140,7 +185,6 @@ class ndVector
 	{
 		return ndVector (m_w);
 	}
-
 
 	inline ndFloat32& operator[] (ndInt32 i)
 	{
@@ -447,6 +491,15 @@ class ndVector
 		return ndVector (ndInt32 (ndUnsigned32 (m_ix) >> bits), ndInt32 (ndUnsigned32 (m_iy) >> bits), ndInt32 (ndUnsigned32 (m_iz) >> bits), ndInt32 (ndUnsigned32 (m_iw) >> bits)); 
 	}
 
+	inline ndVector OptimizedVectorUnrotate(const ndVector& front, const ndVector& up, const ndVector& right) const
+	{
+		return ndVector(
+			m_x * front.m_x + m_y * front.m_y + m_z * front.m_z,
+			m_x * up.m_x    + m_y * up.m_y    + m_z * up.m_z,
+			m_x * right.m_x + m_y * right.m_y + m_z * right.m_z,
+			ndFloat32(0.0f));
+	}
+
 	inline static void Transpose4x4 (ndVector& dst0, ndVector& dst1, ndVector& dst2, ndVector& dst3, const ndVector& src0, const ndVector& src1, const ndVector& src2, const ndVector& src3)
 	{
 		ndVector tmp0 (src0);
@@ -555,6 +608,55 @@ class ndBigVector
 	inline ndBigVector (ndInt64 ix, ndInt64 iy, ndInt64 iz, ndInt64 iw)
 		:m_ix(ix), m_iy(iy), m_iz(iz), m_iw(iw)
 	{
+	}
+
+	// emulate gather instruction
+	inline ndBigVector(const ndFloat64* const baseAddr, const ndInt64* const index)
+		:m_x(baseAddr[index[0]])
+		,m_y(baseAddr[index[1]])
+		,m_z(baseAddr[index[2]])
+		,m_w(baseAddr[index[3]])
+	{
+	}
+
+	inline ndFloat64 GetX() const
+	{
+		return m_x;
+	}
+
+	inline ndFloat64 GetY() const
+	{
+		return m_y;
+	}
+
+	inline ndFloat64 GetZ() const
+	{
+		return m_z;
+	}
+
+	inline ndFloat64 GetW() const
+	{
+		return m_w;
+	}
+
+	inline void SetX(ndFloat64 x)
+	{
+		m_x = x;
+	}
+
+	inline void SetY(ndFloat64 x)
+	{
+		m_y = x;
+	}
+
+	inline void SetZ(ndFloat64 x)
+	{
+		m_z = x;
+	}
+
+	inline void SetW(ndFloat64 x)
+	{
+		m_w = x;
 	}
 
 	inline ndFloat64 GetScalar () const
@@ -883,6 +985,15 @@ class ndBigVector
 	inline ndBigVector ShiftRightLogical (ndInt32 bits) const
 	{
 		return ndBigVector (ndInt64 (ndUnsigned64 (m_ix) >> bits), ndInt64 (ndUnsigned64 (m_iy) >> bits), ndInt64 (ndUnsigned64 (m_iz) >> bits), ndInt64 (ndUnsigned64 (m_iw) >> bits)); 
+	}
+
+	inline ndBigVector OptimizedVectorUnrotate(const ndBigVector& front, const ndBigVector& up, const ndBigVector& right) const
+	{
+		return ndBigVector(
+			m_x * front.m_x + m_y * front.m_y + m_z * front.m_z,
+			m_x * up.m_x + m_y * up.m_y + m_z * up.m_z,
+			m_x * right.m_x + m_y * right.m_y + m_z * right.m_z,
+			ndFloat64(0.0f));
 	}
 
 	inline static void Transpose4x4 (ndBigVector& dst0, ndBigVector& dst1, ndBigVector& dst2, ndBigVector& dst3, const ndBigVector& src0, const ndBigVector& src1, const ndBigVector& src2, const ndBigVector& src3)

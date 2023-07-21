@@ -25,7 +25,9 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 
-#define D_GRANULARITY	(1024 * 64)
+#define D_GRANULARITY			(1024 * 64)
+#define D_LOG_BANK_COUNT_GPU	5
+#define D_BANK_COUNT_GPU		(1<<D_LOG_BANK_COUNT_GPU)
 
 template <class T>
 inline T __device__ __host__ cuAbs(T A)
@@ -65,5 +67,24 @@ inline void __device__ __host__ cuSwap(T& A, T& B)
 	A = tmpB;
 	B = tmpA;
 }
+
+template <typename T, int size>
+class cuBankFreeArray
+{
+	public:
+	__device__ cuBankFreeArray()
+	{
+	}
+
+	__device__ T& operator[] (int address)
+	{
+		int low = address & (D_BANK_COUNT_GPU - 1);
+		int high = address >> D_LOG_BANK_COUNT_GPU;
+		int dst = high * (D_BANK_COUNT_GPU + 1) + low;
+		return m_array[dst];
+	}
+
+	T m_array[((size + D_BANK_COUNT_GPU - 1) >> D_LOG_BANK_COUNT_GPU) * (D_BANK_COUNT_GPU + 1)];
+};
 
 #endif

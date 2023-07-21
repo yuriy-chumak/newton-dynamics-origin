@@ -13,8 +13,8 @@
 #include "ndSkyBox.h"
 #include "ndDemoMesh.h"
 #include "ndVehicleUI.h"
+#include "ndMeshLoader.h"
 #include "ndDemoCamera.h"
-#include "ndLoadFbxMesh.h"
 #include "ndSoundManager.h"
 #include "ndPhysicsUtils.h"
 #include "ndPhysicsWorld.h"
@@ -241,7 +241,8 @@ class ndHeavyMultiBodyVehicle : public ndVehicleCommon
 
 	ndDemoEntity* LoadMeshModel(ndDemoEntityManager* const scene, const char* const filename)
 	{
-		ndDemoEntity* const vehicleEntity = ndDemoEntity::LoadFbx(filename, scene);
+		ndMeshLoader loader;
+		ndDemoEntity* const vehicleEntity = loader.LoadEntity(filename, scene);
 		scene->AddEntity(vehicleEntity);
 		return vehicleEntity;
 	}
@@ -712,8 +713,8 @@ class ndTractorVehicle : public ndHeavyMultiBodyVehicle
 			if (wakeUpVehicle)
 			{
 				m_chassis->SetSleepState(false);
-				m_armHinge->SetOffsetAngle(m_armAngle);
-				m_bucketHinge->SetOffsetAngle(m_bucketAngle);
+				m_armHinge->SetTargetAngle(m_armAngle);
+				m_bucketHinge->SetTargetAngle(m_bucketAngle);
 			}
 		}
 	}
@@ -825,11 +826,11 @@ void ndHeavyVehicle (ndDemoEntityManager* const scene)
 	material.m_dynamicFriction1 = 0.8f;
 
 	ndContactCallback* const callback = (ndContactCallback*)scene->GetWorld()->GetContactNotify();
-	callback->RegisterMaterial(material, ndApplicationMaterial::m_modelPart, ndApplicationMaterial::m_default);
-	callback->RegisterMaterial(material, ndApplicationMaterial::m_modelPart, ndApplicationMaterial::m_modelPart);
-	callback->RegisterMaterial(material, ndApplicationMaterial::m_vehicleTirePart, ndApplicationMaterial::m_default);
-	callback->RegisterMaterial(material, ndApplicationMaterial::m_vehicleTirePart, ndApplicationMaterial::m_modelPart);
-	callback->RegisterMaterial(material, ndApplicationMaterial::m_vehicleTirePart, ndApplicationMaterial::m_vehicleTirePart);
+	callback->RegisterMaterial(material, ndDemoContactCallback::m_modelPart, ndDemoContactCallback::m_default);
+	callback->RegisterMaterial(material, ndDemoContactCallback::m_modelPart, ndDemoContactCallback::m_modelPart);
+	callback->RegisterMaterial(material, ndDemoContactCallback::m_vehicleTirePart, ndDemoContactCallback::m_default);
+	callback->RegisterMaterial(material, ndDemoContactCallback::m_vehicleTirePart, ndDemoContactCallback::m_modelPart);
+	callback->RegisterMaterial(material, ndDemoContactCallback::m_vehicleTirePart, ndDemoContactCallback::m_vehicleTirePart);
 
 	ndPhysicsWorld* const world = scene->GetWorld();
 	ndVector location(0.0f, 2.0f, 0.0f, 1.0f);

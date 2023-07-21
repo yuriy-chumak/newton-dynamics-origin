@@ -19,6 +19,7 @@ struct ImDrawData;
 class ndDemoMesh;
 class ndUIEntity;
 class ndDemoEntity;
+class ndMeshLoader;
 class ndDemoCamera;
 class ndPhysicsWorld;
 class ndAnimationSequence;
@@ -164,8 +165,9 @@ class ndDemoEntityManager: public ndList <ndDemoEntity*>
 	ndInt32 GetDebugDisplay() const;
 	void SetDebugDisplay(ndInt32 mode) const;
 
+	void SetAcceleratedUpdate(); 
 	const ndShaderCache& GetShaderCache() const;  
-	ndAnimationSequence* GetAnimationSequence(const char* const meshName);
+	ndSharedPtr<ndAnimationSequence> GetAnimationSequence(ndMeshLoader& loader, const char* const meshName);
 	
 	private:
 	void BeginFrame();
@@ -192,10 +194,9 @@ class ndDemoEntityManager: public ndList <ndDemoEntity*>
 	static void MouseScrollCallback (GLFWwindow* const window, double x, double y);
 	static void MouseButtonCallback(GLFWwindow* const window, ndInt32 button, ndInt32 action, ndInt32 mods);
 	static void ErrorCallback(ndInt32 error, const char* const description);
-	static void OpenMessageCallback(
+	static void APIENTRY OpenMessageCallback(
 		GLenum source, GLenum type, GLuint id, GLenum severity,
 		GLsizei length, const GLchar* message, const void* userParam);
-	
 
 	void ApplyMenuOptions();
 	void LoadDemo(ndInt32 menu);
@@ -219,7 +220,7 @@ class ndDemoEntityManager: public ndList <ndDemoEntity*>
 
 	ndUnsigned64 m_microsecunds;
 	TransparentHeap m_transparentHeap;
-	ndTree<ndAnimationSequence*, ndString> m_animationCache;
+	ndTree<ndSharedPtr<ndAnimationSequence>, ndString> m_animationCache;
 
 	ndInt32 m_currentScene;
 	ndInt32 m_lastCurrentScene;
@@ -275,18 +276,6 @@ inline ndPhysicsWorld* ndDemoEntityManager::GetWorld() const
 	return m_world;
 }
 
-inline ndInt32 ndDemoEntityManager::GetWidth() const 
-{ 
-	ImGuiIO& io = ImGui::GetIO();
-	return (ndInt32)(io.DisplaySize.x * io.DisplayFramebufferScale.x);
-}
-
-inline ndInt32 ndDemoEntityManager::GetHeight() const 
-{ 
-	ImGuiIO& io = ImGui::GetIO();
-	return (ndInt32)(io.DisplaySize.y * io.DisplayFramebufferScale.y);
-}
-
 inline ndInt32 ndDemoEntityManager::GetDebugDisplay() const
 {
 	ndAssert (0);
@@ -312,5 +301,4 @@ inline void ndDemoEntityManager::SetSelectedModel(ndModel* const model)
 {
 	m_selectedModel = model;
 }
-
 #endif

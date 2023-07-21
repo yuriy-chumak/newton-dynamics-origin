@@ -16,30 +16,31 @@
 #include "ndPhysicsUtils.h"
 
 class ndDemoEntity;
-class ndAnimKeyframe;
 class ndShaderCache;
+class ndAnimKeyframe;
 class ndDemoMeshInterface;
 
-class ndDemoEntityNotify: public ndBodyNotify
+//class ndDemoEntityNotify: public ndBodyNotify
+class ndDemoEntityNotify : public ndModelNotify
 {
 	public:
-	class ndFileDemoEntityNotify: public ndFileFormatNotify
-	{
-		public:
-		ndFileDemoEntityNotify()
-			:ndFileFormatNotify(ndDemoEntityNotify::StaticClassName())
-		{
-		}
+	//D_CLASS_REFLECTION(ndDemoEntityNotify, ndBodyNotify)
+	//class ndDemoEntityNotifyFileLoadSave: public ndFileFormatNotify
+	//{
+	//	public:
+	//	ndDemoEntityNotifyFileLoadSave(const char* const className = ndDemoEntityNotify::StaticClassName())
+	//		:ndFileFormatNotify(className)
+	//	{
+	//	}
+	//
+	//	void SaveNotify(ndFileFormat* const scene, nd::TiXmlElement* const parentNode, const ndBodyNotify* const notify)
+	//	{
+	//		nd::TiXmlElement* const classNode = xmlCreateClassNode(parentNode, D_NOTIFY_CLASS, ndDemoEntityNotify::StaticClassName());
+	//		ndFileFormatNotify::SaveNotify(scene, classNode, notify);
+	//		xmlSaveParam(classNode, "useCollisionForVisual", 1);
+	//	}
+	//};
 
-		void SaveNotify(ndFileFormat* const scene, nd::TiXmlElement* const parentNode, const ndBodyNotify* const notify)
-		{
-			nd::TiXmlElement* const classNode = xmlCreateClassNode(parentNode, "ndNotifyClass", ndDemoEntityNotify::StaticClassName());
-			ndFileFormatNotify::SaveNotify(scene, classNode, notify);
-			xmlSaveParam(classNode, "useCollisionForVisual", 1);
-		}
-	};
-
-	D_CLASS_REFLECTION(ndDemoEntityNotify, ndBodyNotify)
 	ndDemoEntityNotify(ndDemoEntityManager* const manager, ndDemoEntity* const entity, ndBodyKinematic* const parentBody = nullptr, ndFloat32 gravity = DEMO_GRAVITY);
 	virtual ~ndDemoEntityNotify();
 
@@ -48,9 +49,8 @@ class ndDemoEntityNotify: public ndBodyNotify
 		return m_entity;
 	}
 
-	virtual void OnObjectPick() const;
+	//virtual void OnObjectPick() const;
 	virtual void OnTransform(ndInt32 threadIndex, const ndMatrix& matrix);
-	virtual void OnApplyExternalForce(ndInt32 threadIndex, ndFloat32 timestep);
 
 	void RemoveBody();
 	bool CheckInWorld(const ndMatrix& matrix) const
@@ -59,15 +59,34 @@ class ndDemoEntityNotify: public ndBodyNotify
 	}
 
 	ndDemoEntity* m_entity;
-	ndBodyKinematic* m_parentBody;
 	ndDemoEntityManager* m_manager;
 };
 
 class ndBindingRagdollEntityNotify : public ndDemoEntityNotify
 {
 	public:
-	D_CLASS_REFLECTION(ndBindingRagdollEntityNotify, ndDemoEntityNotify)
+	//D_CLASS_REFLECTION(ndBindingRagdollEntityNotify, ndDemoEntityNotify)
+	//class ndBindingRagdollEntityNotifyFileSaveLoad : public ndDemoEntityNotifyFileLoadSave
+	//{
+	//	public:
+	//	ndBindingRagdollEntityNotifyFileSaveLoad()
+	//		:ndDemoEntityNotifyFileLoadSave(ndBindingRagdollEntityNotify::StaticClassName())
+	//	{
+	//	}
+	//
+	//	void SaveNotify(ndFileFormat* const scene, nd::TiXmlElement* const parentNode, const ndBodyNotify* const notify)
+	//	{
+	//		nd::TiXmlElement* const classNode = xmlCreateClassNode(parentNode, "ndBindingNotifyClass", ndBindingRagdollEntityNotify::StaticClassName());
+	//		ndDemoEntityNotifyFileLoadSave::SaveNotify(scene, classNode, notify);
+	//
+	//		ndBindingRagdollEntityNotify* const bindNotiFy = (ndBindingRagdollEntityNotify*)notify;
+	//		xmlSaveParam(classNode, "bindMatrix", bindNotiFy->m_bindMatrix);
+	//		xmlSaveParam(classNode, "capSpeed", bindNotiFy->m_capSpeed);
+	//	}
+	//};
+
 	ndBindingRagdollEntityNotify(ndDemoEntityManager* const manager, ndDemoEntity* const entity, ndBodyDynamic* const parentBody, ndFloat32 campSpeed);
+	~ndBindingRagdollEntityNotify();
 
 	void OnTransform(ndInt32, const ndMatrix& matrix);
 	void OnApplyExternalForce(ndInt32 thread, ndFloat32 timestep);

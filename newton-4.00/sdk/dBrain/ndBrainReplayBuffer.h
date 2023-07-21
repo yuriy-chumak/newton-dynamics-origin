@@ -25,43 +25,112 @@
 #include "ndBrainStdafx.h"
 #include "ndBrainVector.h"
 #include "ndBrainMatrix.h"
-#include "ndBrainInstance.h"
 
-class ndBrainReiforcementTransition
+template<class actionType, ndInt32 statesDim, ndInt32 actionDim>
+class ndBrainReplayTransitionMemory
 {
 	public:
-	ndBrainReiforcementTransition();
-	void CopyFrom(const ndBrainReiforcementTransition& src);
+	ndBrainReplayTransitionMemory();
 
-	ndBrainVector m_state;
-	ndBrainVector m_action;
-	ndBrainVector m_nextState;
+	void Clear();
+	ndFixSizeArray<ndReal, statesDim> m_state;
+	ndFixSizeArray<ndReal, statesDim> m_nextState;
+	ndFixSizeArray<actionType, actionDim> m_action;
 	ndReal m_reward;
 	bool m_terminalState;
 };
 
-class ndBrainReplayBuffer : public ndArray<ndBrainReiforcementTransition>
+template<class actionType, ndInt32 statesDim, ndInt32 actionDim>
+class ndBrainReplayBuffer : public ndArray<ndBrainReplayTransitionMemory<actionType, statesDim, actionDim>>
 {
 	public:
 	ndBrainReplayBuffer();
 	~ndBrainReplayBuffer();
 
-	void SetCount(ndInt32 replayBufferSize, ndInt32 replayBatchSize, ndInt32 stateSize, ndInt32 actionSize);
+	void Clear();
+	void SetSize(ndInt32 size);
+	void AddTransition(const ndBrainReplayTransitionMemory<actionType, statesDim, actionDim>& transition);
 
-	ndBrainReiforcementTransition& GetTransitionEntry();
-
-	void MakeRandomBatch();
-
-	ndArray<ndUnsigned32> m_randomShaffle;
-	ndBrainMatrix m_inputBatch;
-	ndBrainMatrix m_outputBatch;
-	ndBrainMatrix m_nextInputBatch;
-	ndBrainMatrix m_groundTruthBatch;
-	ndBrainVector n_rewardBatch;
-	ndBrainVector n_terminalBatch;
-	ndInt32 m_learnBatchSize;
+	ndArray<ndInt32> m_shuffleBuffer;
 	ndInt32 m_replayBufferIndex;
 };
 
+template<class actionType, ndInt32 statesDim, ndInt32 actionDim>
+ndBrainReplayTransitionMemory<actionType, statesDim, actionDim>::ndBrainReplayTransitionMemory()
+	:m_state()
+	,m_nextState()
+	,m_action()
+	,m_reward(0.0f)
+	,m_terminalState(false)
+{
+	Clear();
+}
+
+template<class actionType, ndInt32 statesDim, ndInt32 actionDim>
+void ndBrainReplayTransitionMemory<actionType, statesDim, actionDim>::Clear()
+{
+	m_state.SetCount(0);
+	m_action.SetCount(0);
+	m_nextState.SetCount(0);
+	for (ndInt32 i = 0; i < statesDim; ++i)
+	{
+		m_state.PushBack(ndReal(0.0f));
+		m_nextState.PushBack(ndReal(0.0f));
+	}
+
+	for (ndInt32 i = 0; i < actionDim; ++i)
+	{
+		m_action.PushBack(actionType(0));
+	}
+
+	m_reward = ndReal(0.0f);
+	m_terminalState = false;
+}
+
+template<class actionType, ndInt32 statesDim, ndInt32 actionDim>
+ndBrainReplayBuffer<actionType, statesDim, actionDim>::ndBrainReplayBuffer()
+	:ndArray<ndBrainReplayTransitionMemory<actionType, statesDim, actionDim>>()
+	,m_shuffleBuffer()
+	,m_replayBufferIndex(0)
+{
+}
+
+template<class actionType, ndInt32 statesDim, ndInt32 actionDim>
+ndBrainReplayBuffer<actionType, statesDim, actionDim>::~ndBrainReplayBuffer()
+{
+}
+
+template<class actionType, ndInt32 statesDim, ndInt32 actionDim>
+void ndBrainReplayBuffer<actionType, statesDim, actionDim>::Clear()
+{
+	m_replayBufferIndex = 0;
+	m_shuffleBuffer.SetCount(0);
+	ndArray<ndBrainReplayTransitionMemory<actionType, statesDim, actionDim>>::SetCount(0);
+}
+
+template<class actionType, ndInt32 statesDim, ndInt32 actionDim>
+void ndBrainReplayBuffer<actionType, statesDim, actionDim>::SetSize(ndInt32 size)
+{
+	m_shuffleBuffer.SetCount(size);
+	ndArray<ndBrainReplayTransitionMemory<actionType, statesDim, actionDim>>::SetCount(size);
+	Clear();
+}
+
+template<class actionType, ndInt32 statesDim, ndInt32 actionDim>
+void ndBrainReplayBuffer<actionType, statesDim, actionDim>::AddTransition(const ndBrainReplayTransitionMemory<actionType, statesDim, actionDim>& transition)
+{
+	ndInt32 count = ndArray<ndBrainReplayTransitionMemory<actionType, statesDim, actionDim>>::GetCount();
+	if (count < ndArray<ndBrainReplayTransitionMemory<actionType, statesDim, actionDim>>::GetCapacity())
+	{
+		m_shuffleBuffer.PushBack(ndArray<ndBrainReplayTransitionMemory<actionType, statesDim, actionDim>>::GetCount());
+		ndArray<ndBrainReplayTransitionMemory<actionType, statesDim, actionDim>>::PushBack(transition);
+	}
+	else
+	{
+		ndBrainReplayBuffer<actionType, statesDim, actionDim>& me = *this;
+		me[m_replayBufferIndex] = transition;
+		m_replayBufferIndex = (m_replayBufferIndex + 1) % ndArray<ndBrainReplayTransitionMemory<actionType, statesDim, actionDim>>::GetCapacity();
+	}
+}
 #endif 
 

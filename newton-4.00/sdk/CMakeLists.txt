@@ -18,6 +18,7 @@ if (NEWTON_BUILD_PROFILER)
 	add_subdirectory(dProfiler)
 endif()
 
+add_subdirectory(dModel)
 add_subdirectory(dBrain)
 add_subdirectory(dFileFormat)
 
@@ -36,7 +37,6 @@ else()
 	include_directories(dNewton/dModels)
 	include_directories(dNewton/dIkSolver)
 	include_directories(dNewton/dModels/dVehicle)
-	include_directories(dNewton/dModels/dCharacter)
 
 	add_subdirectory(dNewton/dExtensions)
 
@@ -48,8 +48,7 @@ else()
 		dNewton/dJoints/*.h 
 		dNewton/dModels/*.h 
 		dNewton/dIkSolver/*.h
-		dNewton/dModels/dVehicle/*.h
-		dNewton/dModels/dCharacter/*.h)
+		dNewton/dModels/dVehicle/*.h)
 
 	file(GLOB CPP_SOURCE 
 		dCore/*.h 
@@ -65,9 +64,7 @@ else()
 		dNewton/dIkSolver/*.h
 		dNewton/dIkSolver/*.cpp
 		dNewton/dModels/dVehicle/*.h 
-		dNewton/dModels/dVehicle/*.cpp
-		dNewton/dModels/dCharacter/*.h
-		dNewton/dModels/dCharacter/*.cpp)
+		dNewton/dModels/dVehicle/*.cpp)
 
 	if(NEWTON_ENABLE_AVX2_SOLVER)
 		add_definitions(-D_D_USE_AVX2_SOLVER)
@@ -133,7 +130,7 @@ else()
 			set_source_files_properties(dCore/ndCoreStdAfx.cpp PROPERTIES COMPILE_FLAGS "/YcndCoreStdafx.h")
 		endif()
 
-		if (NEWTON_BUILD_TEST AND NEWTON_BUILD_SHARED_LIBS)
+		if (NEWTON_BUILD_SHARED_LIBS)
 			add_custom_command(
 				TARGET ${projectName} POST_BUILD
 				COMMAND ${CMAKE_COMMAND}

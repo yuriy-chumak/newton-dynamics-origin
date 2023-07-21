@@ -21,18 +21,26 @@ class glSkinVertex;
 class ndShaderCache;
 class ndDemoEntityManager;
 
-//class ndDemoSkinMesh: public ndDemoMesh
 class ndDemoSkinMesh: public ndDemoMeshInterface
 {
 	public:
-	struct dWeightBoneIndex
+	struct ndWeightBoneIndex
 	{
+		ndWeightBoneIndex()
+		{
+			m_boneIndex[0] = -1;
+			m_boneIndex[0] = -1;
+			m_boneIndex[0] = -1;
+			m_boneIndex[0] = -1;
+		}
+
 		ndInt32 m_boneIndex[4];
 	};
 
 	ndDemoSkinMesh(const ndDemoSkinMesh& source, ndDemoEntity* const owner);
 	ndDemoSkinMesh(ndDemoEntity* const owner, ndMeshEffect* const meshNode, const ndShaderCache& shaderCache);
 	~ndDemoSkinMesh();
+	ndDemoSkinMesh* GetAsDemoSkinMesh();
 
 	protected: 
 	virtual ndDemoMeshInterface* Clone(ndDemoEntity* const owner);

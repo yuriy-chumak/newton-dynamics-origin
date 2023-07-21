@@ -32,14 +32,21 @@ ndFileFormatShapeConvexChamferCylinder::ndFileFormatShapeConvexChamferCylinder(c
 {
 }
 
-ndInt32 ndFileFormatShapeConvexChamferCylinder::SaveShape(ndFileFormat* const scene, nd::TiXmlElement* const parentNode, const ndShape* const shape)
+ndInt32 ndFileFormatShapeConvexChamferCylinder::SaveShape(ndFileFormatSave* const scene, nd::TiXmlElement* const parentNode, const ndShape* const shape)
 {
-	nd::TiXmlElement* const classNode = xmlCreateClassNode(parentNode, "ndShape", ndShapeChamferCylinder::StaticClassName());
+	nd::TiXmlElement* const classNode = xmlCreateClassNode(parentNode, D_SHAPE_CLASS, ndShapeChamferCylinder::StaticClassName());
 	ndFileFormatShapeConvex::SaveShape(scene, classNode, shape);
 
 	const ndShapeChamferCylinder* const cylinder = (ndShapeChamferCylinder*)shape;
 
 	xmlSaveParam(classNode, "height", cylinder->m_height);
-	xmlSaveParam(classNode, "radius0", cylinder->m_radius);
+	xmlSaveParam(classNode, "radius", cylinder->m_radius);
 	return xmlGetNodeId(classNode);
+}
+
+ndShape* ndFileFormatShapeConvexChamferCylinder::LoadShape(const nd::TiXmlElement* const node, const ndTree<ndShape*, ndInt32>&)
+{
+	ndFloat32 height = xmlGetFloat(node, "height");
+	ndFloat32 radius = xmlGetFloat(node, "radius");
+	return new ndShapeChamferCylinder(radius, height * ndFloat32(2.0f));
 }

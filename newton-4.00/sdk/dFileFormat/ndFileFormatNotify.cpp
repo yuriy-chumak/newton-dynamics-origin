@@ -32,8 +32,21 @@ ndFileFormatNotify::ndFileFormatNotify(const char* const className)
 {
 }
 
-void ndFileFormatNotify::SaveNotify(ndFileFormat* const, nd::TiXmlElement* const parentNode, const ndBodyNotify* const notify)
+void ndFileFormatNotify::SaveNotify(ndFileFormatSave* const, nd::TiXmlElement* const parentNode, const ndBodyNotify* const notify)
 {
-	nd::TiXmlElement* const classNode = xmlCreateClassNode(parentNode, "ndNotifyClass", ndBodyNotify::StaticClassName());
+	nd::TiXmlElement* const classNode = xmlCreateClassNode(parentNode, D_NOTIFY_CLASS, ndBodyNotify::StaticClassName());
 	xmlSaveParam(classNode, "gravity", notify->GetGravity());
+}
+
+void ndFileFormatNotify::LoadNotify(const nd::TiXmlElement* const node, ndBodyNotify* const notify)
+{
+	ndVector gravity(xmlGetVector3(node, "gravity"));
+	notify->SetGravity(gravity);
+}
+
+ndBodyNotify* ndFileFormatNotify::LoadNotify(const nd::TiXmlElement* const node)
+{
+	ndBodyNotify* const notify = new ndBodyNotify(ndVector::m_zero);
+	LoadNotify(node, notify);
+	return notify;
 }

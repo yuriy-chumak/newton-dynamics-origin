@@ -84,33 +84,18 @@
 #endif
 
 // some third party libraries includes here
-#include <ofbx.h>
+#include <VHACD.h>
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 
-#include "VHACD.h"
-//#include "include/VHACD.h"
-
 // SDK includes
 #include <ndNewton.h>
+#include <ndModelInc.h>
+#include <ndBrainInc.h>
+#include <ndFileFormatInc.h>
 
-#include <ndBrainStdafx.h>
-#include <ndBrain.h>
-#include <ndBrainTrainer.h>
-#include <ndBrainAgentDQN.h>
-#include <ndBrainAgentDDPG.h>
-#include "ndBrainReplayBuffer.h"
-#include <ndBrainParallelTrainer.h>
-
-#include <ndFileFormatStdafx.h>
-#include <ndFileFormat.h>
-#include <ndFileFormatNotify.h>
-#include <ndFileFormatRegistrar.h>
-#include <ndFileFormatBodyTriggerVolume.h>
-#include <ndFileFormatShapeStaticProceduralMesh.h>
-
-void dGetWorkingFileName (const char* const name, char* const outPathName);
+void ndGetWorkingFileName (const char* const name, char* const outPathName);
 
 // endian conversion
 ndUnsigned32 SWAP_INT32(ndUnsigned32 x);

@@ -21,34 +21,70 @@
 
 #include "ndFileFormatStdafx.h"
 #include "ndFileFormatRegistrar.h"
+
 #include "ndFileFormatBody.h"
 #include "ndFileFormatWorld.h"
 #include "ndFileFormatShape.h"
+#include "ndFileFormatJoint.h"
+#include "ndFileFormatModel.h"
 #include "ndFileFormatNotify.h"
+#include "ndFileFormatShapeNull.h"
+#include "ndFileFormatJointGear.h"
+#include "ndFileFormatJointPlane.h"
+#include "ndFileFormatJointHinge.h"
+#include "ndFileFormatJointWheel.h"
+#include "ndFileFormatJointSlider.h"
+#include "ndFileFormatJointPulley.h"
 #include "ndFileFormatShapeConvex.h"
-#include "ndFileFormatDynamicBody.h"
-#include "ndFileFormatKinematicBody.h"
+#include "ndFileFormatBodyDynamic.h"
+#include "ndFileFormatModelNotify.h"
+#include "ndFileFormatJointRoller.h"
+#include "ndFileFormatJointFix6dof.h"
+#include "ndFileFormatJointIkHinge.h"
+#include "ndFileFormatBodyKinematic.h"
 #include "ndFileFormatShapeInstance.h"
 #include "ndFileFormatShapeCompound.h"
+#include "ndFileFormatJointCylinder.h"
+#include "ndFileFormatJointUpVector.h"
+#include "ndFileFormatJointSpherical.h"
 #include "ndFileFormatShapeConvexBox.h"
 #include "ndFileFormatShapeConvexCone.h"
 #include "ndFileFormatShapeConvexHull.h"
 #include "ndFileFormatShapeStaticMesh.h"
+#include "ndFileFormatJointFollowPath.h"
+#include "ndFileFormatJointDoubleHinge.h"
+#include "ndFileFormatJointFixDistance.h"
+#include "ndFileFormatJointIkSpherical.h"
+#include "ndFileFormatJointVehicleTire.h"
+#include "ndFileFormatModelArticulation.h"
+#include "ndFileFormatJointVehicleMotor.h"
 #include "ndFileFormatBodyTriggerVolume.h"
-#include "ndFileFormatKinematicBodyBase.h"
+#include "ndFileFormatBodyKinematicBase.h"
 #include "ndFileFormatShapeConvexSphere.h"
 #include "ndFileFormatShapeConvexCapsule.h"
+#include "ndFileFormatJointIkDoubleHinge.h"
+#include "ndFileFormatJointIk6DofEffector.h"
 #include "ndFileFormatShapeConvexCylinder.h"
 #include "ndFileFormatShapeStaticMesh_bvh.h"
+#include "ndFileFormatJointVehicleGearBox.h"
+#include "ndFileFormatModelPassiveRagdoll.h"
+#include "ndFileFormatJointRollingFriction.h"
+#include "ndFileFormatJointVehicleTorsionBar.h"
 #include "ndFileFormatShapeStaticHeightfield.h"
+#include "ndFileFormatJointKinematicController.h"
+#include "ndFileFormatJointVehicleDifferential.h"
 #include "ndFileFormatShapeStaticProceduralMesh.h"
 #include "ndFileFormatShapeConvexChamferCylinder.h"
+#include "ndFileFormatBodyKinematicPlayerCapsule.h"
+#include "ndFileFormatJointVehicleDifferentialAxle.h"
+#include "ndFileFormatJointIkSwivelPositionEffector.h"
+
 
 ndFixSizeArray<ndFileFormatRegistrar*, 256> ndFileFormatRegistrar::m_registry;
 
 ndFileFormatRegistrar::ndFileFormatRegistrar(const char* const className)
 	:ndClassAlloc()
-	,m_hash(dCRC64(className))
+	,m_hash(ndCRC64(className))
 {
 	ndAssert(!GetHandler(className));
 
@@ -74,16 +110,7 @@ ndFileFormatRegistrar::~ndFileFormatRegistrar()
 
 void ndFileFormatRegistrar::Init()
 {
-	static ndFileFormatBody body;
-	static ndFileFormatShape shape;
-	static ndFileFormatWorld world;
-	static ndFileFormatNotify bodyNotiy;
-	static ndFileFormatDynamicBody dynamicBody;
-	static ndFileFormatShapeInstance collision;
-	static ndFileFormatKinematicBody kinematicBody;
-	static ndFileFormatBodyTriggerVolume triggerVolume;
-	static ndFileFormatKinematicBodyBase kinematicBodyBase;
-
+	static ndFileFormatShapeNull shapeNull;
 	static ndFileFormatShapeConvex shapeConvex;
 	static ndFileFormatShapeConvexBox shapeBox;
 	static ndFileFormatShapeConvexCone shapeCone;
@@ -94,14 +121,59 @@ void ndFileFormatRegistrar::Init()
 	static ndFileFormatShapeStaticMesh shapeStaticMesh;
 	static ndFileFormatShapeConvexCylinder shapeCylinder;
 	static ndFileFormatShapeStaticMesh_bvh shapeStaticBvh;
+	static ndFileFormatJointIk6DofEffector ik6DofEffector;
 	static ndFileFormatShapeStaticHeightfield shapeHeightfield;
 	static ndFileFormatShapeStaticProceduralMesh shapeProceduralMesh;
 	static ndFileFormatShapeConvexChamferCylinder shapeChamferCylinder;
+
+	static ndFileFormatBody body;
+	static ndFileFormatShape shape;
+	static ndFileFormatWorld world;
+	static ndFileFormatNotify bodyNotiy;
+	static ndFileFormatModelNotify modelNotify;
+	static ndFileFormatBodyDynamic dynamicBody;
+	static ndFileFormatShapeInstance collision;
+	static ndFileFormatBodyKinematic kinematicBody;
+	static ndFileFormatBodyTriggerVolume triggerVolume;
+	static ndFileFormatBodyKinematicBase kinematicBodyBase;
+	static ndFileFormatBodyKinematicPlayerCapsule kinematicPlayerCapsule;
+
+	static ndFileFormatJoint joint;
+	static ndFileFormatJointGear jointGear;
+	static ndFileFormatJointHinge jointHinge;
+	static ndFileFormatJointPlane jointPlane;
+	static ndFileFormatJointWheel jopintWheel;
+	static ndFileFormatJointSlider jointSlider;
+	static ndFileFormatJointRoller jointRoller;
+	static ndFileFormatJointPulley jointPulley;
+	static ndFileFormatJointFix6dof jointFix6Dof;
+	static ndFileFormatJointIkHinge jointIkHinge;
+	static ndFileFormatJointUpVector jointUpVector;
+	static ndFileFormatJointCylinder jointCylinder;
+	static ndFileFormatJointSpherical jointSpherical;
+	static ndFileFormatJointFollowPath jointFollowPath;
+	static ndFileFormatJointIkSpherical jointIkSpherical;
+	static ndFileFormatJointDoubleHinge jointDoubleHinge;
+	static ndFileFormatJointFixDistance jointFixDistance;
+	static ndFileFormatJointVehicleTire jointVehicleTire;
+	static ndFileFormatJointVehicleMotor jointVehicleMotor;
+	static ndFileFormatJointIkDoubleHinge jointIkDoubleHinge;
+	static ndFileFormatJointVehicleGearBox jointVehicleGearBox;
+	static ndFileFormatJointRollingFriction jointRollingFriction;
+	static ndFileFormatJointVehicleTorsionBar jointVehicleTorsionBar;
+	static ndFileFormatJointVehicleDifferential jointVehicleDiffrential;
+	static ndFileFormatJointKinematicController jointkinematicController;
+	static ndFileFormatJointVehicleDifferentialAxle jointVehicleDiffAxle;
+	static ndFileFormatJointIkSwivelPositionEffector jointIkSwivelPositionEffector;
+
+	static ndFileFormatModel model;
+	static ndFileFormatModelArticulation modelArticulation;
+	static ndFileFormatModelPassiveRagdoll modelPassiveRagdoll;
 }
 
 ndFileFormatRegistrar* ndFileFormatRegistrar::GetHandler(const char* const className)
 {
-	ndUnsigned64 hash = dCRC64(className);
+	ndUnsigned64 hash = ndCRC64(className);
 	ndInt32 i0 = 0;
 	ndInt32 i1 = m_registry.GetCount() - 1;
 	while ((i1 - i0 > 4))
@@ -128,28 +200,74 @@ ndFileFormatRegistrar* ndFileFormatRegistrar::GetHandler(const char* const class
 	return nullptr;
 }
 
-void ndFileFormatRegistrar::SaveWorld(ndFileFormat* const, nd::TiXmlElement* const, const ndWorld* const)
+void ndFileFormatRegistrar::SaveWorld(ndFileFormatSave* const, nd::TiXmlElement* const, const ndWorld* const)
 {
 	ndAssert(0);
 }
 
-void ndFileFormatRegistrar::SaveBody(ndFileFormat* const, nd::TiXmlElement* const, const ndBody* const)
+void ndFileFormatRegistrar::SaveBody(ndFileFormatSave* const, nd::TiXmlElement* const, const ndBody* const)
 {
 	ndAssert(0);
 }
 
-void ndFileFormatRegistrar::SaveNotify(ndFileFormat* const, nd::TiXmlElement* const, const ndBodyNotify* const)
+void ndFileFormatRegistrar::SaveNotify(ndFileFormatSave* const, nd::TiXmlElement* const, const ndBodyNotify* const)
 {
 	ndAssert(0);
 }
 
-ndInt32 ndFileFormatRegistrar::SaveShape(ndFileFormat* const, nd::TiXmlElement* const, const ndShape* const)
+ndInt32 ndFileFormatRegistrar::SaveShape(ndFileFormatSave* const, nd::TiXmlElement* const, const ndShape* const)
 {
 	ndAssert(0);
 	return 0;
 }
 
-void ndFileFormatRegistrar::SaveCollision(ndFileFormat* const, nd::TiXmlElement* const, const ndShapeInstance* const)
+void ndFileFormatRegistrar::SaveCollision(ndFileFormatSave* const, nd::TiXmlElement* const, const ndShapeInstance* const)
 {
 	ndAssert(0);
+}
+
+void ndFileFormatRegistrar::SaveJoint(ndFileFormatSave* const, nd::TiXmlElement* const, const ndJointBilateralConstraint* const)
+{
+	ndAssert(0);
+}
+
+void ndFileFormatRegistrar::SaveModel(ndFileFormatSave* const, nd::TiXmlElement* const, const ndModel* const)
+{
+	ndAssert(0);
+}
+
+ndShape* ndFileFormatRegistrar::LoadShape(const nd::TiXmlElement* const, const ndTree<ndShape*, ndInt32>&)
+{
+	ndAssert(0);
+	return nullptr;
+}
+
+ndBody* ndFileFormatRegistrar::LoadBody(const nd::TiXmlElement* const, const ndTree<ndShape*, ndInt32>&)
+{
+	ndAssert(0);
+	return nullptr;
+}
+
+ndShapeInstance* ndFileFormatRegistrar::LoadCollision(const nd::TiXmlElement* const, const ndTree<ndShape*, ndInt32>&)
+{
+	ndAssert(0);
+	return nullptr;
+}
+
+ndBodyNotify* ndFileFormatRegistrar::LoadNotify(const nd::TiXmlElement* const)
+{
+	ndAssert(0);
+	return nullptr;
+}
+
+ndJointBilateralConstraint* ndFileFormatRegistrar::LoadJoint(const nd::TiXmlElement* const, const ndTree<ndSharedPtr<ndBody>, ndInt32>&)
+{
+	ndAssert(0);
+	return nullptr;
+}
+
+ndModel* ndFileFormatRegistrar::LoadModel(const nd::TiXmlElement* const, const ndTree<ndSharedPtr<ndBody>, ndInt32>&, const ndTree<ndSharedPtr<ndJointBilateralConstraint>, ndInt32>&)
+{
+	ndAssert(0);
+	return nullptr;
 }

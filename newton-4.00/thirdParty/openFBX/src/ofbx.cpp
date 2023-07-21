@@ -1092,6 +1092,36 @@ struct MaterialImpl : Material
 	MaterialImpl(const Scene& _scene, const IElement& _element)
 		: Material(_scene, _element)
 	{
+		diffuse_color.r = 1.0f;
+		diffuse_color.g = 1.0f;
+		diffuse_color.b = 1.0f;
+
+		specular_color.r = 1.0f;
+		specular_color.g = 1.0f;
+		specular_color.b = 1.0f;
+
+		reflection_color.r = 1.0f;
+		reflection_color.g = 1.0f;
+		reflection_color.b = 1.0f;
+
+		ambient_color.r = 1.0f;
+		ambient_color.g = 1.0f;
+		ambient_color.b = 1.0f;
+
+		emissive_color.r = 1.0f;
+		emissive_color.g = 1.0f;
+		emissive_color.b = 1.0f;
+
+		diffuse_factor = 1.0;
+		specular_factor = 1.0;
+		reflection_factor = 1.0;
+		shininess = 1.0;
+		shininess_exponent = 1.0;
+		ambient_factor = 1.0;
+		bump_factor = 1.0;
+		emissive_factor = 1.0;
+		opacity_factor = 1.0;
+
 		for (const Texture*& tex : textures) tex = nullptr;
 	}
 
@@ -1205,6 +1235,7 @@ struct GeometryImpl : Geometry
 	std::vector<Vec3> tangents;
 	std::vector<int> materials;
 
+	Color rgbDisplayColor;
 	const Skin* skin = nullptr;
 	const BlendShape* blendShape = nullptr;
 
@@ -1215,6 +1246,9 @@ struct GeometryImpl : Geometry
 	GeometryImpl(const Scene& _scene, const IElement& _element)
 		: Geometry(_scene, _element)
 	{
+		rgbDisplayColor.r = 1.0f;
+		rgbDisplayColor.g = 1.0f;
+		rgbDisplayColor.b = 1.0f;
 	}
 
 
@@ -1230,6 +1264,7 @@ struct GeometryImpl : Geometry
 	const Skin* getSkin() const override { return skin; }
 	const BlendShape* getBlendShape() const override { return blendShape; }
 	const int* getMaterials() const override { return materials.empty() ? nullptr : &materials[0]; }
+	Color getRgbDisplayColor() const override { return rgbDisplayColor; }
 };
 
 
@@ -1738,9 +1773,31 @@ struct AnimationCurveNodeImpl : AnimationCurveNode
 			const float* values = curve.curve->getKeyValue();
 			int count = curve.curve->getKeyCount();
 
-			if (fbx_time < times[0]) fbx_time = times[0];
-			if (fbx_time > times[count - 1]) fbx_time = times[count - 1];
-			for (int i = 1; i < count; ++i)
+			if (fbx_time < times[0])
+			{
+				fbx_time = times[0];
+			}
+			if (fbx_time > times[count - 1])
+			{
+				fbx_time = times[count - 1];
+			}
+			int i0 = 1;
+			int i2 = count - 1;
+			while ((i2 - i0) >= 8)
+			{
+				int i1 = (i2 + i0) >> 1;
+				const i64 midTime = times[i1];
+				if (midTime > fbx_time)
+				{
+					i2 = i1;
+				}
+				else
+				{
+					i0 = i1;
+				}
+			}
+			assert(times[i0 - 1] <= fbx_time);
+			for (int i = i0; i < count; ++i)
 			{
 				if (times[i] >= fbx_time)
 				{
@@ -1748,6 +1805,7 @@ struct AnimationCurveNodeImpl : AnimationCurveNode
 					return values[i - 1] * (1 - t) + values[i] * t;
 				}
 			}
+
 			return values[0];
 		};
 
@@ -2716,6 +2774,43 @@ static OptionalError<Object*> parseGeometryNormals(
 static OptionalError<Object*> parseGeometry(const Element& element, bool triangulate, GeometryImpl* geom)
 {
 	assert(element.first_property);
+
+	const Element* const displayColor = findChild(element, "Properties70");
+	if (displayColor)
+	{
+		const IElement* const colorElement = displayColor->getFirstChild();
+		if (colorElement)
+		{
+			const IElementProperty* const color0 = colorElement->getFirstProperty();
+			const IElementProperty* const color1 = color0->getNext();
+			const IElementProperty* const color2 = color1->getNext();
+			const IElementProperty* const color3 = color2->getNext();
+			Property* const red = (Property*)color3->getNext();
+			Property* const green = (Property*)red->getNext();
+			Property* const blue = (Property*)green->getNext();
+
+			Vec3 color;
+			color.x = geom->rgbDisplayColor.r;
+			color.y = geom->rgbDisplayColor.g;
+			color.z = geom->rgbDisplayColor.b;
+			if (red->value.is_binary)
+			{
+				parseDouble(*red, &color.x);
+				parseDouble(*green, &color.y);
+				parseDouble(*blue, &color.z);
+			}
+			else
+			{
+				red->getValues(&color.x, sizeof(double));
+				green->getValues(&color.y, sizeof(double));
+				blue->getValues(&color.z, sizeof(double));
+			}
+
+			geom->rgbDisplayColor.r = (float)color.x;
+			geom->rgbDisplayColor.g = (float)color.y;
+			geom->rgbDisplayColor.b = (float)color.z;
+		}
+	}
 
 	const Element* vertices_element = findChild(element, "Vertices");
 	if (!vertices_element || !vertices_element->first_property)

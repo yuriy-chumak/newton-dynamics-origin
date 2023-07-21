@@ -19,12 +19,19 @@ class ndJointFix6dof: public ndJointBilateralConstraint
 {
 	public:
 	D_CLASS_REFLECTION(ndJointFix6dof, ndJointBilateralConstraint)
+
+	D_NEWTON_API ndJointFix6dof();
 	D_NEWTON_API ndJointFix6dof(const ndMatrix& frameInGlobalSpace, ndBodyKinematic* const body0, ndBodyKinematic* const body1);
 	D_NEWTON_API ndJointFix6dof(ndBodyKinematic* const body0, ndBodyKinematic* const body1, const ndMatrix& globalMatrixBody0, const ndMatrix& globalMatrixBody1 );
 	D_NEWTON_API virtual ~ndJointFix6dof();
 
 	D_NEWTON_API void SetAsSoftJoint(bool mode);
+
+	D_NEWTON_API ndFloat32 GetRegularizer() const;
 	D_NEWTON_API void SetRegularizer(ndFloat32 regularizer);
+
+	D_NEWTON_API ndFloat32 GetMaxForce() const;
+	D_NEWTON_API ndFloat32 GetMaxTorque() const;
 
 	private:
 	void JacobianDerivative(ndConstraintDescritor& desc);

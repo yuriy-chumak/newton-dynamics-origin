@@ -20,7 +20,7 @@
 */
 
 #include "ndFileFormatStdafx.h"
-#include "ndFileFormat.h"
+#include "ndFileFormatSave.h"
 #include "ndFileFormatShapeCompound.h"
 
 ndFileFormatShapeCompound::ndFileFormatShapeCompound()
@@ -33,7 +33,7 @@ ndFileFormatShapeCompound::ndFileFormatShapeCompound(const char* const className
 {
 }
 
-ndInt32 ndFileFormatShapeCompound::SaveShape(ndFileFormat* const scene, nd::TiXmlElement* const parentNode, const ndShape* const shape)
+ndInt32 ndFileFormatShapeCompound::SaveShape(ndFileFormatSave* const scene, nd::TiXmlElement* const parentNode, const ndShape* const shape)
 {
 	ndShapeCompound* const compoundShape = (ndShapeCompound*)shape;
 	const ndShapeCompound::ndTreeArray& shapeList = compoundShape->GetTree();
@@ -44,7 +44,7 @@ ndInt32 ndFileFormatShapeCompound::SaveShape(ndFileFormat* const scene, nd::TiXm
 		const ndShapeInstance* const childInstance = compoundShape->GetShapeInstance(it.GetNode());
 		const ndShape* const childShape = childInstance->GetShape();
 		ndUnsigned64 hash = childShape->GetHash();
-		ndTree<ndInt32, ndUnsigned64>::ndNode* const node = scene->m_uniqueShapes.Insert(hash);
+		ndTree<ndInt32, ndUnsigned64>::ndNode* const node = scene->m_uniqueShapesIds.Insert(hash);
 		if (node)
 		{
 			ndFileFormatRegistrar* const handler = ndFileFormatRegistrar::GetHandler(childShape->ClassName());
@@ -53,7 +53,7 @@ ndInt32 ndFileFormatShapeCompound::SaveShape(ndFileFormat* const scene, nd::TiXm
 		}
 	}
 
-	nd::TiXmlElement* const classNode = xmlCreateClassNode(parentNode, "ndShape", ndShapeCompound::StaticClassName());
+	nd::TiXmlElement* const classNode = xmlCreateClassNode(parentNode, D_SHAPE_CLASS, ndShapeCompound::StaticClassName());
 	ndFileFormatShape::SaveShape(scene, classNode, shape);
 	for (it.Begin(); it; it++)
 	{
@@ -63,4 +63,23 @@ ndInt32 ndFileFormatShapeCompound::SaveShape(ndFileFormat* const scene, nd::TiXm
 		handler->SaveCollision(scene, classNode, childInstance);
 	}
 	return xmlGetNodeId(classNode);
+}
+
+
+ndShape* ndFileFormatShapeCompound::LoadShape(const nd::TiXmlElement* const node, const ndTree<ndShape*, ndInt32>& shapeMap)
+{
+	ndShapeInstance rootInstance(new ndShapeCompound());
+	ndShapeCompound* const compoundShape = (ndShapeCompound*)rootInstance.GetShape();
+
+	compoundShape->BeginAddRemove();
+
+	ndFileFormatRegistrar* const collisionHandler = ndFileFormatRegistrar::GetHandler(ndShapeInstance::StaticClassName());
+	ndAssert(collisionHandler);
+	for (const nd::TiXmlNode* childNode = node->FirstChild(D_INSTANCE_CLASS); childNode; childNode = childNode->NextSibling())
+	{
+		ndSharedPtr<ndShapeInstance> instance(collisionHandler->LoadCollision((nd::TiXmlElement*)childNode, shapeMap));
+		compoundShape->AddCollision(*instance);
+	}
+	compoundShape->EndAddRemove();
+	return new ndShapeCompound(*compoundShape, nullptr);
 }

@@ -24,14 +24,21 @@
 
 #define MAX_PHYSICS_STEPS			1
 #define MAX_PHYSICS_FPS				60.0f
-//#define MAX_PHYSICS_RECOVER_STEPS	2
 
+ndDemoContactCallback::ndDemoContactCallback()
+{
+}
+
+ndDemoContactCallback::~ndDemoContactCallback()
+{
+}
 
 ndPhysicsWorld::ndDefferentDeleteEntities::ndDefferentDeleteEntities(ndDemoEntityManager* const manager)
 	:ndArray<ndDemoEntity*>()
 	,m_manager(manager)
 	,m_renderThreadId(std::this_thread::get_id())
 {
+	static ndPhysicsWorldFileLoadSave saveLoad;
 }
 
 void ndPhysicsWorld::ndDefferentDeleteEntities::Update()
@@ -68,9 +75,10 @@ ndPhysicsWorld::ndPhysicsWorld(ndDemoEntityManager* const manager)
 	,m_soundManager(new ndSoundManager(manager))
 	,m_timeAccumulator(0.0f)
 	,m_deadEntities(manager)
+	,m_acceleratedUpdate(false)
 {
 	ClearCache();
-	SetContactNotify(new ndContactCallback);
+	SetContactNotify(new ndDemoContactCallback);
 }
 
 ndPhysicsWorld::~ndPhysicsWorld()
@@ -104,8 +112,26 @@ ndSoundManager* ndPhysicsWorld::GetSoundManager() const
 	return m_soundManager;
 }
 
-void ndPhysicsWorld::OnPostUpdate(ndFloat32 timestep)
+void ndPhysicsWorld::PreUpdate(ndFloat32 timestep)
 {
+	ndWorld::PreUpdate(timestep);
+
+	static ndInt32 xxxx = 0;
+	xxxx++;
+	if (xxxx % 200 == 0)
+	{
+		const ndBodyListView& bodyList = GetBodyList();
+		if (bodyList.GetCount() > 1)
+		{
+			//ndInt32 index = ndInt32(ndRandInt() % (bodyList.GetCount() - 1) + 1);
+			//RemoveBody(bodyList.GetView()[index]);
+		}
+	}
+}
+
+void ndPhysicsWorld::PostUpdate(ndFloat32 timestep)
+{
+	ndWorld::PostUpdate(timestep);
 	m_manager->m_cameraManager->FixUpdate(m_manager, timestep);
 	if (m_manager->m_updateCamera)
 	{
@@ -118,27 +144,40 @@ void ndPhysicsWorld::OnPostUpdate(ndFloat32 timestep)
 	}
 }
 
+void ndPhysicsWorld::AccelerateUpdates()
+{
+	m_acceleratedUpdate = true;
+}
+
 void ndPhysicsWorld::AdvanceTime(ndFloat32 timestep)
 {
 	D_TRACKTIME();
 	const ndFloat32 descreteStep = (1.0f / MAX_PHYSICS_FPS);
 
-	ndInt32 maxSteps = MAX_PHYSICS_STEPS;
-	m_timeAccumulator += timestep;
-
-	// if the time step is more than max timestep par frame, throw away the extra steps.
-	if (m_timeAccumulator > descreteStep * (ndFloat32)maxSteps)
-	{
-		ndFloat32 steps = ndFloor(m_timeAccumulator / descreteStep) - (ndFloat32)maxSteps;
-		ndAssert(steps >= 0.0f);
-		m_timeAccumulator -= descreteStep * steps;
-	}
-
-	while (m_timeAccumulator > descreteStep)
+	if (m_acceleratedUpdate)
 	{
 		Update(descreteStep);
-		m_timeAccumulator -= descreteStep;
+	} 
+	else
+	{
+		ndInt32 maxSteps = MAX_PHYSICS_STEPS;
+		m_timeAccumulator += timestep;
+
+		// if the time step is more than max timestep par frame, throw away the extra steps.
+		if (m_timeAccumulator > descreteStep * (ndFloat32)maxSteps)
+		{
+			ndFloat32 steps = ndFloor(m_timeAccumulator / descreteStep) - (ndFloat32)maxSteps;
+			ndAssert(steps >= 0.0f);
+			m_timeAccumulator -= descreteStep * steps;
+		}
+
+		while (m_timeAccumulator > descreteStep)
+		{
+			Update(descreteStep);
+			m_timeAccumulator -= descreteStep;
+		}
 	}
+
 	if (m_manager->m_synchronousPhysicsUpdate)
 	{
 		Sync();

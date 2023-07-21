@@ -45,15 +45,16 @@ Set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -rdc=true")
 Set(CMAKE_CUDA_FLAGS_RELEASE "${CMAKE_CUDA_FLAGS_RELEASE} -rdc=true")
 Set(CMAKE_CUDA_FLAGS_RELWITHDEBINFO "${CMAKE_CUDA_FLAGS_RELWITHDEBINFO} -rdc=true")
 
+#Set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} --ptxas-options=-v")
+#Set(CMAKE_CUDA_FLAGS_RELEASE "${CMAKE_CUDA_FLAGS_RELEASE} --ptxas-options=-v")
+#Set(CMAKE_CUDA_FLAGS_RELWITHDEBINFO "${CMAKE_CUDA_FLAGS_RELWITHDEBINFO} --ptxas-options=-v")
+
 Set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} --device-debug")
 Set(CMAKE_CUDA_FLAGS_RELWITHDEBINFO "${CMAKE_CUDA_FLAGS_RELWITHDEBINFO} --device-debug")
 
 #Set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -use_fast_math")
 #Set(CMAKE_CUDA_FLAGS_RELEASE "${CMAKE_CUDA_FLAGS_RELEASE} -use_fast_math")
 #Set(CMAKE_CUDA_FLAGS_RELWITHDEBINFO "${CMAKE_CUDA_FLAGS_RELWITHDEBINFO} -use_fast_math")
-
-#target_link_options(${projectName} PRIVATE $<DEVICE_LINK:-Xcompiler "/wd4100 /WX">)
-#target_link_options(${projectName} PRIVATE $<DEVICE_LINK:-Xcompiler "/wd4100">)
 
 message ("cuda debug options ${CMAKE_CUDA_FLAGS_DEBUG}")
 message ("cuda release options ${CMAKE_CUDA_FLAGS_RELEASE}")
@@ -63,7 +64,11 @@ add_definitions(-D_D_CUDA_EXPORT_DLL)
 add_library(${projectName} SHARED ${CPP_SOURCE})
 
 set_target_properties(${projectName} PROPERTIES CUDA_SEPARABLE_COMPILATION ON CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-target_compile_options(${projectName} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-gencode arch=compute_61,code=sm_61>)
+
+#it seems this is the broken
+#target_compile_options(${projectName} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-gencode arch=compute_60 code=sm_60>)
+#target_compile_options(${projectName} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-gencode compute_60,sm_60>)
+#target_compile_options(${projectName} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-gencode arch=compute_52 code=sm_52>)
 
 install(FILES ${HEADERS} DESTINATION include/${projectName})
 install(FILES $<TARGET_PDB_FILE:${projectName}> DESTINATION bin OPTIONAL)
@@ -74,11 +79,4 @@ if (NEWTON_BUILD_SANDBOX_DEMOS)
 		TARGET ${projectName} POST_BUILD
 		COMMAND ${CMAKE_COMMAND}
 		ARGS -E copy $<TARGET_FILE:${projectName}> ${PROJECT_BINARY_DIR}/../../../../applications/ndSandbox/${CMAKE_CFG_INTDIR}/$<TARGET_FILE_NAME:${projectName}>)
-endif ()
-
-if (NEWTON_BUILD_TEST)
-	add_custom_command(
-		TARGET ${projectName} POST_BUILD
-		COMMAND ${CMAKE_COMMAND}
-		ARGS -E copy $<TARGET_FILE:${projectName}> ${PROJECT_BINARY_DIR}/../../../../applications/ndTest/${CMAKE_CFG_INTDIR}/$<TARGET_FILE_NAME:${projectName}>)
 endif ()

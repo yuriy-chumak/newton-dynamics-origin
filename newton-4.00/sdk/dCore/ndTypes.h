@@ -105,6 +105,12 @@
 
 #if defined (__x86_64) || defined(__x86_64__) || defined(_M_IX86) || defined(_M_X64)
 	#include <immintrin.h>
+	#define D_USE_SSE3
+
+	//#if defined (_M_AMD64) && (_M_AMD64 == 100) && !defined (_M_ARM64EC)
+	#if defined (_M_AMD64) || defined (_M_X64)
+		#define D_USE_64_BIT_SIMD_INT
+	#endif
 #endif
 
 #if defined(__arm__) && defined(__aarch64__) 
@@ -241,8 +247,8 @@ typedef double ndFloat64;
 #define ndRsqrt(x)		(ndFloat32 (1.0f) / ndSqrt(x))
 
 #if (defined (WIN32) || defined(_WIN32) || defined (_M_ARM) || defined (_M_ARM64))
-	//#define ndCheckFloat(x) (_finite(x) && !_isnan(x))
-	#define ndCheckFloat(x) (1)
+	//#define ndCheckFloat(x) (1)
+	#define ndCheckFloat(x) (_finite(x) && !_isnan(x))
 #else
 	//#define ndCheckFloat(x) (isfinite(x) && !isnan(x))
 	#define ndCheckFloat(x) (1)
@@ -261,6 +267,16 @@ typedef double ndFloat64;
 		ndFloat32 m_fVal;
 	};
 #endif
+
+union ndIntPtr
+{
+	ndIntPtr()
+		:m_int(0)
+	{
+	}
+	void* m_ptr;
+	ndInt64 m_int;
+};
 
 union ndDoubleInt
 {
@@ -282,16 +298,33 @@ class ndTriplex
 	ndFloat32 m_z;
 };
 
-#define D_BASE_CLASS_REFLECTION(Class)						\
-	virtual const char* ClassName() const {return #Class;}	\
-	static const char* StaticClassName() {return #Class;}	\
-	virtual const char* SuperClassName() const {return "";}
+#define D_BASE_CLASS_REFLECTION(Class)			\
+	virtual const char* ClassName() const		\
+	{											\
+	return #Class;								\
+	}											\
+	static const char* StaticClassName()		\
+	{											\
+	return #Class;								\
+	}											\
+	virtual const char* SuperClassName() const	\
+	{											\
+		return #Class;							\
+	}
 
-
-#define D_CLASS_REFLECTION(Class,SuperClass)					\
-	virtual const char* ClassName() const {return #Class;}		\
-	static const char* StaticClassName() {return #Class;}		\
-	virtual const char* SuperClassName() const {return #SuperClass;}
+#define D_CLASS_REFLECTION(Class,SuperClass)	\
+	virtual const char* ClassName() const		\
+	{											\
+		return #Class;							\
+	}											\
+	static const char* StaticClassName()		\
+	{											\
+		return #Class;							\
+	}											\
+	virtual const char* SuperClassName() const	\
+	{											\
+		return #SuperClass;						\
+	}
 
 #define D_OPERATOR_NEW_AND_DELETE			\
 inline void *operator new (size_t size)		\

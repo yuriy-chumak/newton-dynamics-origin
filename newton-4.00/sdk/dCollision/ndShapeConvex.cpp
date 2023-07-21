@@ -209,19 +209,19 @@ ndMatrix ndShapeConvex::CalculateInertiaAndCenterOfMass(const ndMatrix& alignMat
 		inertia[2][0] = m_crossInertia[1] * mag2;
 		inertia[1][2] = m_crossInertia[0] * mag2;
 		inertia[2][1] = m_crossInertia[0] * mag2;
-		inertia = matrix.Inverse() * inertia * matrix;
+		inertia = matrix.OrthoInverse() * inertia * matrix;
 	
 		ndAssert(localScale.m_w == ndFloat32(0.0f));
 		ndVector origin(matrix.TransformVector(m_centerOfMass * localScale));
 	
 		origin.m_w = ndFloat32(0.0f);
 		ndFloat32 originMag2 = origin.DotProduct(origin).GetScalar();
-		ndMatrix Covariance(origin, origin);
+		ndMatrix covariance(ndCovarianceMatrix(origin, origin));
 		ndMatrix parallel(ndGetIdentityMatrix());
 		for (ndInt32 i = 0; i < 3; ++i) 
 		{
 			parallel[i][i] = originMag2;
-			inertia[i] += (parallel[i] - Covariance[i]);
+			inertia[i] += (parallel[i] - covariance[i]);
 			ndAssert(inertia[i][i] > ndFloat32(0.0f));
 		}
 	
@@ -500,7 +500,7 @@ ndInt32 ndShapeConvex::RectifyConvexSlice(ndInt32 count, const ndVector& normal,
 		index++;
 		ptr = ptr->m_next;
 	} while (ptr != hullPoint);
-	memcpy(contactsOut, &contactsOut[start], count * sizeof(ndVector));
+	ndMemCpy(contactsOut, &contactsOut[start], count);
 
 	ndAssert(SanityCheck(count, normal, contactsOut));
 	return count;

@@ -13,6 +13,15 @@
 #include "ndNewtonStdafx.h"
 #include "ndJointFix6dof.h"
 
+ndJointFix6dof::ndJointFix6dof()
+	:ndJointBilateralConstraint()
+	,m_softness(ndFloat32(0.0f))
+	,m_maxForce(D_MAX_BOUND)
+	,m_maxTorque(D_MAX_BOUND)
+{
+	m_maxDof = 6;
+}
+
 ndJointFix6dof::ndJointFix6dof(const ndMatrix& frameInGlbalSpace, ndBodyKinematic* const body0, ndBodyKinematic* const body1)
 	:ndJointBilateralConstraint(6, body0, body1, frameInGlbalSpace)
 	,m_softness(ndFloat32(0.0f))
@@ -42,6 +51,21 @@ void ndJointFix6dof::SetAsSoftJoint(bool)
 void ndJointFix6dof::SetRegularizer(ndFloat32 regularizer)
 {
 	m_softness = ndClamp(regularizer, ndFloat32(0.0f), ndFloat32(1.0f));
+}
+
+ndFloat32 ndJointFix6dof::GetRegularizer() const
+{
+	return m_softness;
+}
+
+ndFloat32 ndJointFix6dof::GetMaxForce() const
+{
+	return m_maxForce;
+}
+
+ndFloat32 ndJointFix6dof::GetMaxTorque() const
+{
+	return m_maxTorque;
 }
 
 void ndJointFix6dof::JacobianDerivative(ndConstraintDescritor& desc)
@@ -104,7 +128,7 @@ void ndJointFix6dof::SubmitAngularAxis(ndConstraintDescritor& desc, const ndMatr
 	ndAssert(lateralDir.DotProduct(lateralDir).GetScalar() > ndFloat32 (1.0e-6f));
 	lateralDir = lateralDir.Normalize();
 	ndFloat32 coneAngle = ndAcos(ndClamp(matrix1.m_front.DotProduct(matrix0.m_front).GetScalar(), ndFloat32(-1.0f), ndFloat32(1.0f)));
-	ndMatrix coneRotation(ndQuaternion(lateralDir, coneAngle), matrix1.m_posit);
+	ndMatrix coneRotation(ndCalculateMatrix(ndQuaternion(lateralDir, coneAngle), matrix1.m_posit));
 
 	AddAngularRowJacobian(desc, lateralDir, -coneAngle);
 	SetLowerFriction(desc, -m_maxTorque);
@@ -118,7 +142,7 @@ void ndJointFix6dof::SubmitAngularAxis(ndConstraintDescritor& desc, const ndMatr
 	SetDiagonalRegularizer(desc, m_softness);
 
 	// calculate pitch angle
-	ndMatrix pitchMatrix(matrix1 * coneRotation * matrix0.Inverse());
+	ndMatrix pitchMatrix(matrix1 * coneRotation * matrix0.OrthoInverse());
 	ndFloat32 pitchAngle = ndAtan2(pitchMatrix[1][2], pitchMatrix[1][1]);
 	AddAngularRowJacobian(desc, matrix0.m_front, pitchAngle);
 	SetLowerFriction(desc, -m_maxTorque);

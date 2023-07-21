@@ -32,9 +32,9 @@ ndFileFormatShapeConvexHull::ndFileFormatShapeConvexHull(const char* const class
 {
 }
 
-ndInt32 ndFileFormatShapeConvexHull::SaveShape(ndFileFormat* const scene, nd::TiXmlElement* const parentNode, const ndShape* const shape)
+ndInt32 ndFileFormatShapeConvexHull::SaveShape(ndFileFormatSave* const scene, nd::TiXmlElement* const parentNode, const ndShape* const shape)
 {
-	nd::TiXmlElement* const classNode = xmlCreateClassNode(parentNode, "ndShape", ndShapeConvexHull::StaticClassName());
+	nd::TiXmlElement* const classNode = xmlCreateClassNode(parentNode, D_SHAPE_CLASS, ndShapeConvexHull::StaticClassName());
 	ndFileFormatShapeConvex::SaveShape(scene, classNode, shape);
 
 	ndArray<ndVector> points;
@@ -45,4 +45,11 @@ ndInt32 ndFileFormatShapeConvexHull::SaveShape(ndFileFormat* const scene, nd::Ti
 	}
 	xmlSaveParam(classNode, "points", points);
 	return xmlGetNodeId(classNode);
+}
+
+ndShape* ndFileFormatShapeConvexHull::LoadShape(const nd::TiXmlElement* const node, const ndTree<ndShape*, ndInt32>&)
+{
+	ndArray<ndVector> points;
+	xmlGetFloatArray3(node, "points", points);
+	return new ndShapeConvexHull(points.GetCount(), sizeof(ndVector), (0.0f), &points[0].m_x);
 }

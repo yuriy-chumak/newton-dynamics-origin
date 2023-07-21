@@ -438,8 +438,7 @@ void ndDynamicsUpdateSoa::IntegrateBodies()
 			ndBodyKinematic* const body = bodyArray[i];
 			if (!body->m_equilibrium)
 			{
-				body->m_accel = invTime * (body->m_veloc - body->m_accel);
-				body->m_alpha = invTime * (body->m_omega - body->m_alpha);
+				body->SetAcceleration(invTime * (body->m_veloc - body->m_accel), invTime * (body->m_omega - body->m_alpha));
 				body->IntegrateVelocity(timestep);
 			}
 			body->EvaluateSleepState(speedFreeze2, accelFreeze2);
@@ -1204,8 +1203,10 @@ void ndDynamicsUpdateSoa::IntegrateBodiesVelocity()
 			ndBodyKinematic* const body = bodyArray[i];
 
 			ndAssert(body);
-			ndAssert(body->GetAsBodyDynamic());
 			ndAssert(body->m_isConstrained);
+			// no necessary anymore because the virtual function handle it.
+			//ndAssert(body->GetAsBodyDynamic());
+
 			const ndInt32 index = body->m_index;
 			const ndJacobian& forceAndTorque = internalForces[index];
 			const ndVector force(body->GetForce() + forceAndTorque.m_linear);

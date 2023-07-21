@@ -305,7 +305,7 @@ ndSoundManager::~ndSoundManager()
 void ndSoundManager::LoadWaveFile(ndSoundAsset* const asset, const char* const fileName)
 {
 	char path[2048];
-	dGetWorkingFileName(fileName, path);
+	ndGetWorkingFileName(fileName, path);
 
 	FILE* const wave = fopen(path, "rb");
 	if (wave)
@@ -415,7 +415,7 @@ ndSoundAsset* ndSoundManager::CreateSoundAsset(const char* const fileName)
 	ndSoundAssetList::ndNode* assetNode = nullptr;
 	if (m_device)
 	{
-		ndUnsigned64 code = dCRC64(fileName);
+		ndUnsigned64 code = ndCRC64(fileName);
 		assetNode = m_assets.Find(code);
 		if (!assetNode)
 		{
@@ -432,7 +432,7 @@ ndSoundChannel* ndSoundManager::CreateSoundChannel(const char* const fileName)
 	ndSoundChannel* channel = nullptr;
 	if (m_device)
 	{
-		ndUnsigned64 code = dCRC64(fileName);
+		ndUnsigned64 code = ndCRC64(fileName);
 		ndSoundAssetList::ndNode* const assetNode = m_assets.Find(code);
 		ndAssert(assetNode);
 	

@@ -108,8 +108,6 @@ class ndContact: public ndConstraint
 	ndContact* GetAsContact();
 	virtual ndUnsigned32 GetRowsCount() const;
 
-	
-
 	const ndMaterial* GetMaterial() const;
 	virtual void JacobianDerivative(ndConstraintDescritor& desc);
 	virtual void JointAccelerations(ndJointAccelerationDecriptor* const desc);
@@ -117,6 +115,7 @@ class ndContact: public ndConstraint
 	ndContactPointList& GetContactPoints();
 	const ndContactPointList& GetContactPoints() const;
 
+	bool IsTestOnly() const;
 	bool IsInTrigger() const;
 	bool IsSkeletonSelftCollision() const;
 	//bool IsSkeletonIntraCollision() const;
@@ -192,12 +191,17 @@ inline const ndContactPointList& ndContact::GetContactPoints() const
 
 inline bool ndContact::IsSkeletonSelftCollision() const
 {
-	return m_skeletonSelftCollision ? true : false;;
+	return m_skeletonSelftCollision ? true : false;
 }
 
 inline bool ndContact::IsInTrigger() const
 {
 	return m_inTrigger;
+}
+
+inline bool ndContact::IsTestOnly() const
+{
+	return m_isIntersetionTestOnly ? true : false;
 }
 
 //inline bool ndContact::IsSkeletonIntraCollision() const

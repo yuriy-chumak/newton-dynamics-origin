@@ -26,6 +26,7 @@
 #include "ndTypes.h"
 #include "ndStack.h"
 #include "ndMemory.h"
+#include "ndFixSizeArray.h"
 
 // assume this function returns memory aligned to 16 bytes
 #define ndAlloca(type, count) (type*) alloca (sizeof (type) * (count))
@@ -145,6 +146,54 @@ inline T ndAnglesAdd (T angleInRadiand1, T angleInRadiand0)
 	return T(ndAtan2(s, c));
 }
 
+template <class T>
+inline T ndAnglesSub(T angleInRadiand1, T angleInRadiand0)
+{
+	T s1 = T(ndSin(angleInRadiand1));
+	T c1 = T(ndCos(angleInRadiand1));
+	T s0 = T(ndSin(angleInRadiand0));
+	T c0 = T(ndCos(angleInRadiand0));
+
+	T s = s1 * c0 - s0 * c1;
+	T c = c1 * c0 + s0 * s1;
+	return T(ndAtan2(s, c));
+}
+
+template <class T>
+inline void ndMemSet(T* const dst, const T& val, ndInt32 elements)
+{
+	T value(val);
+	const ndInt32 n = elements & (-0x04);
+	for (ndInt32 i = 0; i < n; i += 4)
+	{
+		dst[i + 0] = value;
+		dst[i + 1] = value;
+		dst[i + 2] = value;
+		dst[i + 3] = value;
+	}
+	for (ndInt32 i = n; i < elements; ++i)
+	{
+		dst[i] = value;
+	}
+}
+
+template <class T>
+inline void ndMemCpy(T* const dst, const T* const src, ndInt32 elements)
+{
+	const ndInt32 n = elements & (-0x04);
+	for (ndInt32 i = 0; i < n; i += 4)
+	{
+		dst[i + 0] = src[i + 0];
+		dst[i + 1] = src[i + 1];
+		dst[i + 2] = src[i + 2];
+		dst[i + 3] = src[i + 3];
+	}
+	for (ndInt32 i = n; i < elements; ++i)
+	{
+		dst[i] = src[i];
+	}
+}
+
 #ifndef _MSC_VER 
 	#define _stricmp(x,y) strcasecmp(x,y)
 #endif
@@ -206,6 +255,49 @@ ndInt32 ndVertexListToIndexList(T* const vertexList, ndInt32 strideInBytes, ndIn
 
 	return count;
 }
+
+/// Simple moving average class, useful for stuff like frame rate smoothing
+template <ndInt32 size>
+class ndMovingAverage: public ndFixSizeArray<ndReal, size>
+{
+	public:
+	ndMovingAverage()
+		:ndFixSizeArray<ndReal, size>()
+		,m_average(ndReal(0.0f))
+		,m_index(0)
+	{
+		Clear();
+	}
+
+	ndReal GetAverage() const
+	{
+		return m_average;
+	}
+
+	void Clear()
+	{
+		m_index = 0;
+		m_average = ndReal(0.0f);
+		ndFixSizeArray<ndReal, size>::SetCount(0);
+		for (ndInt32 i = 0; i < size; ++i)
+		{
+			ndFixSizeArray<ndReal, size>::PushBack(ndReal(0.0f));
+		}
+	}
+
+	ndReal Update(ndReal value)
+	{
+		(*this)[m_index] = value;
+		ndInt32 index = (m_index + 1) % size;
+		m_average += (value - (*this)[index]) / size;
+		m_index = index;
+		return GetAverage();
+	}
+
+	private:
+	ndReal m_average;
+	ndInt32 m_index;
+};
 
 /// Simple spin lock for synchronizing threads for very short period of time.
 class ndSpinLock

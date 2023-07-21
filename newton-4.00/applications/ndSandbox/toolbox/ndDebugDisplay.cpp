@@ -228,7 +228,7 @@ void RenderContactPoints(ndDemoEntityManager* const scene)
 			// test User contact calculation.
 			#ifdef D_TEST_CALCULATE_CONTACTS
 			ndContactSolver solver;
-			ndContactNotify notification;
+			ndContactNotify notification(world->GetScene());
 			ndFixSizeArray<ndContactPoint, 16> contactOut;
 			ndBodyKinematic* bodyA = contact->GetBody0();
 			ndBodyKinematic* bodyB = contact->GetBody1();
@@ -257,7 +257,7 @@ void RenderContactPoints(ndDemoEntityManager* const scene)
 
 	ndDemoCamera* const camera = scene->GetCamera();
 	const ndMatrix viewProjectionMatrix(camera->GetViewMatrix() * camera->GetProjectionMatrix());
-	const ndMatrix invViewProjectionMatrix(camera->GetProjectionMatrix().Inverse4x4() * camera->GetViewMatrix().Inverse());
+	const ndMatrix invViewProjectionMatrix(camera->GetProjectionMatrix().Inverse4x4() * camera->GetViewMatrix().OrthoInverse());
 
 	glVector4 color(ndVector(1.0f, 0.0f, 0.0f, 1.0f));
 

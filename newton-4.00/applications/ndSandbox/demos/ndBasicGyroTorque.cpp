@@ -87,15 +87,14 @@ static void RattleBack(ndDemoEntityManager* const scene, ndFloat32 mass, ndFloat
 
 	ndPhysicsWorld* const world = scene->GetWorld();
 
-	ndVector floor(FindFloor(*world, matrix.m_posit + ndVector(0.0f, 100.0f, 0.0f, 0.0f), 200.0f));
-	matrix.m_posit.m_y += floor.m_y + 0.4f;
-
 	ndMatrix shapeMatrix(ndYawMatrix(5.0f * ndDegreeToRad));
 	//ndMatrix shapeMatrix(ndYawMatrix(10.0f * ndDegreeToRad));
 
 	ndShapeInstance shape(new ndShapeSphere(1.0f));
 	shape.SetScale(ndVector(0.3f, 0.25f, 1.0f, 0.0f));
 	ndSharedPtr<ndDemoMeshInterface> mesh(new ndDemoMesh("shape", scene->GetShaderCache(), &shape, "marble.tga", "marble.tga", "marble.tga"));
+
+	matrix = FindFloor(*world, matrix, shape, 200.0f);
 
 	ndBodyKinematic* const body = new ndBodyDynamic();
 	ndDemoEntity* const entity = new ndDemoEntity(matrix, nullptr);
@@ -223,12 +222,10 @@ void ndBasicAngularMomentum (ndDemoEntityManager* const scene)
 	
 	scene->GetCameraManager()->SetPickMode(true);
 
-
-	ndFileFormat xxxx;
-	xxxx.CollectScene(scene->GetWorld());
-	xxxx.SaveBodies("xxxx.nd");
-
-	ndQuaternion rot;
-	ndVector origin(-15.0f, 5.0f, 0.0f, 1.0f);
-	scene->SetCameraMatrix(rot, origin);
+	//ndFileFormatSave xxxx;
+	//xxxx.SaveWorld(scene->GetWorld(), "xxxx.nd");
+	//
+	//ndQuaternion rot;
+	//ndVector origin(-15.0f, 5.0f, 0.0f, 1.0f);
+	//scene->SetCameraMatrix(rot, origin);
 }

@@ -35,6 +35,40 @@ ndVector FindFloor(const ndWorld& world, const ndVector& origin, ndFloat32 dist)
 	return p1;
 }
 
+ndMatrix FindFloor(const ndWorld& world, const ndMatrix& origin, const ndShapeInstance& shape, ndFloat32 dist)
+{
+	class ndFindFloorConvexCast : public ndConvexCastNotify
+	{
+		public:
+		ndFindFloorConvexCast(const ndWorld& world, const ndMatrix& origin, const ndShapeInstance& shape, ndFloat32 dist)
+			:ndConvexCastNotify()
+		{
+			ndVector dst(origin.m_posit);
+			dst.m_y -= dist;
+			world.ConvexCast(*this, shape, origin, dst);
+		}
+
+		virtual ndUnsigned32 OnRayPrecastAction(const ndBody* const, const ndShapeInstance* const)
+		{
+			return 1;
+		}
+	};
+
+	//ndVector boxMin;
+	//ndVector boxMax;
+	//ndVector floor(FindFloor(world, matrix.m_posit + ndVector(0.0f, dist * 0.5f, 0.0f, 0.0f), dist));
+	//shape.CalculateAabb(shape.GetLocalMatrix() * matrix, boxMin, boxMax);
+	//floor.m_y += (boxMax.m_y - boxMin.m_y) * 0.5f;
+	//floor.m_y -= ndShapeInstance::GetBoxPadding();
+	//matrix.m_posit.m_y = ndMax(floor.m_y, matrix.m_posit.m_y);
+
+	ndMatrix matrix(origin);
+	matrix.m_posit.m_y += dist * 0.5f;
+	ndFindFloorConvexCast castShape(world, matrix, shape, dist);
+	matrix.m_posit.m_y -= dist * castShape.m_param;
+	return matrix;
+}
+
 ndBodyKinematic* MousePickBody(ndWorld* const world, const ndVector& origin, const ndVector& end, ndFloat32& paramterOut, ndVector& positionOut, ndVector& normalOut)
 {
 	class ndRayPickingCallback: public ndRayCastClosestHitCallback
@@ -131,24 +165,31 @@ ndBodyKinematic* CreateBody(ndDemoEntityManager* const scene, const ndShapeInsta
 {
 	ndPhysicsWorld* const world = scene->GetWorld();
 
-	ndMatrix matrix(location);
-	ndVector floor(FindFloor(*world, matrix.m_posit + ndVector(0.0f, 500.0f, 0.0f, 0.0f), 1000.0f));
-	matrix.m_posit.m_y = ndMax (floor.m_y + 1.0f, matrix.m_posit.m_y);
+	//ndVector boxMin;
+	//ndVector boxMax;
+	//ndMatrix matrix(location);
+	//shape.CalculateAabb(location, boxMin, boxMax);
+	//ndVector floor(FindFloor(*world, matrix.m_posit + ndVector(0.0f, 500.0f, 0.0f, 0.0f), 1000.0f));
+	//floor.m_y += (boxMax.m_y - boxMin.m_y) * 0.5f;
+	//floor.m_y -= ndShapeInstance::GetBoxPadding();
+	//matrix.m_posit.m_y = ndMax (floor.m_y, matrix.m_posit.m_y);
+	ndMatrix matrix(FindFloor(*world, location, shape, 200.0f));
 	ndSharedPtr<ndDemoMeshInterface> mesh (new ndDemoMesh("shape", scene->GetShaderCache(), &shape, textName, textName, textName));
 
-	ndBodyKinematic* const body = new ndBodyDynamic();
+	ndSharedPtr<ndBody> body(new ndBodyDynamic());
 	ndDemoEntity* const entity = new ndDemoEntity(matrix, nullptr);
 	entity->SetMesh(mesh);
-	body->SetNotifyCallback(new ndDemoEntityNotify(scene, entity));
 
-	body->SetMatrix(matrix);
-	body->SetCollisionShape(shape);
-	body->SetMassMatrix(mass, shape);
+	ndBodyKinematic* const kinBody = body->GetAsBodyKinematic();
+	kinBody->SetNotifyCallback(new ndDemoEntityNotify(scene, entity));
 
-	ndSharedPtr<ndBody> bodyPtr(body);
-	world->AddBody(bodyPtr);
+	kinBody->SetMatrix(matrix);
+	kinBody->SetCollisionShape(shape);
+	kinBody->SetMassMatrix(mass, shape);
+
+	world->AddBody(body);
 	scene->AddEntity(entity);
-	return body;
+	return kinBody;
 }
 
 ndBodyKinematic* AddBox(ndDemoEntityManager* const scene, const ndMatrix& location, ndFloat32 mass, ndFloat32 sizex, ndFloat32 sizey, ndFloat32 sizez, const char* const textName)
